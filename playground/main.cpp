@@ -10,18 +10,8 @@ int main() {
 		return 0;
 	}
 
-	if (mango::PeHeader pe_header(process, process.get_module("")->m_address); pe_header) {
-
-
-
-		std::cout << "[imports]" << std::endl;
-		for (const auto& [mod_name, x] : pe_header.get_imports()) {
-			std::cout << "[*] " << mod_name << std::endl;
-			for (const auto& [func_name, entry] : x) {
-				std::cout << func_name << " " << std::hex << entry.m_address << std::endl;
-			}
-		}
-	}
+	std::cout << std::hex << process.get_proc_addr("kernel32.dll", "CreateFileA") << std::endl;
+	std::cout << std::hex << GetProcAddress(GetModuleHandle("KERNEL32.DLL"), "CreateFileA") << std::endl;
 	
 	system("pause");
 	return 0;

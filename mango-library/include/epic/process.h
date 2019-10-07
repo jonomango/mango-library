@@ -8,15 +8,14 @@
 #include <Windows.h>
 #include <winternl.h>
 
+#include <epic/pe_header.h>
+
 
 namespace mango {
 	// RAII
 	class Process {
 	public:
-		struct Module {
-			uintptr_t m_address = 0;
-		};
-
+		using Module = PeHeader; // might change this later if too much overhead
 		using ProcessModules = std::unordered_map<std::string, Module>;
 
 	public:
@@ -50,8 +49,8 @@ namespace mango {
 		// get a list of loaded modules
 		const ProcessModules& get_modules() const { return this->m_modules; }
 
-		// get a loaded module (passing "" for name returns the current process module)
-		std::optional<Module> get_module(const std::string& name) const;
+		// get a loaded module, case-insensitive (passing "" for name returns the current process module)
+		std::optional<Module> get_module(std::string name) const;
 
 		// read from a memory address
 		void read(const void* const address, void* const buffer, const size_t size) const;
@@ -96,6 +95,9 @@ namespace mango {
 		uint32_t set_mem_prot(const uintptr_t address, const size_t size, const uint32_t protection) const {
 			return this->set_mem_prot(reinterpret_cast<void* const>(address), size, protection);
 		}
+
+		// same as GetProcAddress()
+		uintptr_t get_proc_addr(const std::string& module_name, const std::string& func_name) const;
 
 		// updates the internal list of modules
 		void update_modules();

@@ -1,6 +1,7 @@
 #include <epic/process.h>
 
 #include <iostream>
+#include <algorithm>
 #include <Psapi.h>
 
 
@@ -49,7 +50,6 @@ namespace mango {
 		GetNativeSystemInfo(&system_info);
 		return system_info.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_AMD64;
 	}
-
 	std::string Process::query_name() const {
 		char buffer[1024];
 		if (DWORD size = sizeof(buffer); !QueryFullProcessImageName(this->m_handle, 0, buffer, &size))
@@ -79,10 +79,13 @@ namespace mango {
 
 		return this->read<PEB>(process_info.PebBaseAddress);
 	}
-	std::optional<Process::Module> Process::get_module(const std::string& name) const {
+	std::optional<Process::Module> Process::get_module(std::string name) const {
 		// special case (similar to GetModuleHandle(nullptr))
 		if (name.empty())
 			return this->m_process_module;
+
+		// change to lowercase
+		std::transform(name.begin(), name.end(), name.begin(), std::tolower);
 
 		// find the module
 		if (const auto it = this->m_modules.find(name); it != this->m_modules.end())
@@ -121,6 +124,18 @@ namespace mango {
 		return 0;
 	}
 
+	uintptr_t Process::get_proc_addr(const std::string& module_name, const std::string& func_name) const {
+		const auto mod = this->get_module(module_name);
+		if (!mod)
+			return 0;
+
+		const auto exp = mod->get_export(func_name);
+		if (!exp)
+			return 0;
+
+		return exp->m_address;
+	}
+
 	void Process::update_modules() {
 		this->m_modules.clear();
 
@@ -130,14 +145,19 @@ namespace mango {
 		if (DWORD size = 0; EnumProcessModules(this->m_handle, modules, sizeof(modules), &size)) {
 			// iterate over each module
 			for (size_t i = 0; i < size / sizeof(HMODULE); ++i) {
-				char name[256];
-				GetModuleBaseName(this->m_handle, modules[i], name, sizeof(name));
+				char buffer[256];
+				GetModuleBaseName(this->m_handle, modules[i], buffer, sizeof(buffer));
 				
+				std::string name(buffer);
+
+				// change to lowercase
+				std::transform(name.begin(), name.end(), name.begin(), std::tolower);
+
 				// add to list
-				this->m_modules[name] = { uintptr_t(modules[i]) };
+				this->m_modules[name] = PeHeader(*this, modules[i]);
 			}
 		} else {
-			std::cout << "Failed to fetch modules." << std::endl;
+			std::cout << "Failed to update modules." << std::endl;
 		}
 	}
 } // namespace mango

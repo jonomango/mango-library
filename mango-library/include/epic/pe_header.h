@@ -24,6 +24,7 @@ namespace mango {
 			std::unordered_map<std::string /* func name */, PeEntry>>;
 
 	public:
+		PeHeader() = default; // should never use this but permits the use of some std containers
 		PeHeader(const Process& process, const void* const address);
 		PeHeader(const Process& process, const uintptr_t address);
 
