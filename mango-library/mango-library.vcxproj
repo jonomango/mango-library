@@ -19,10 +19,14 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\epic\pe_header.h" />
     <ClInclude Include="include\epic\process.h" />
+    <ClInclude Include="include\utils\utils.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\epic\pe_header.cpp" />
     <ClCompile Include="src\epic\process.cpp" />
+    <ClCompile Include="src\utils\utils.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>

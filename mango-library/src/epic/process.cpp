@@ -1,6 +1,7 @@
 #include <epic/process.h>
 
 #include <iostream>
+#include <Psapi.h>
 
 
 namespace mango {
@@ -16,9 +17,21 @@ namespace mango {
 			FALSE, pid
 		);
 
+		// whether we're valid or not depends entirely on OpenProcess()
 		this->m_is_valid = (this->m_handle != nullptr);
-	}
+		if (!this->is_valid())
+			return;
 
+		// update the internal list of modules
+		this->update_modules();
+
+		// cache the process name
+		this->m_process_name = this->query_name();
+
+		// cache the process' module
+		if (const auto it = this->m_modules.find(this->get_name()); it != this->m_modules.end())
+			this->m_process_module = it->second;
+	}
 	Process::~Process() {
 		if (!this->m_is_valid)
 			return;
@@ -35,6 +48,46 @@ namespace mango {
 		SYSTEM_INFO system_info;
 		GetNativeSystemInfo(&system_info);
 		return system_info.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_AMD64;
+	}
+
+	std::string Process::query_name() const {
+		char buffer[1024];
+		if (DWORD size = sizeof(buffer); !QueryFullProcessImageName(this->m_handle, 0, buffer, &size))
+			return "";
+
+		std::string name(buffer);
+
+		// erase everything before the last back slash
+		const size_t pos = name.find_last_of('\\');
+		if (pos != std::string::npos)
+			name = name.substr(pos + 1);
+
+		return name;
+	}
+	std::optional<PEB> Process::get_peb() const {
+		using NtQueryInformationProcessFn = NTSTATUS(__stdcall*)(HANDLE, PROCESSINFOCLASS, PVOID, ULONG, PULONG);
+		static const auto NtQueryInformationProcess = NtQueryInformationProcessFn(
+			GetProcAddress(GetModuleHandleA("ntdll.dll"), "NtQueryInformationProcess"));
+
+		if (!NtQueryInformationProcess)
+			return {};
+
+		// get address of the peb structure
+		PROCESS_BASIC_INFORMATION process_info;
+		if (DWORD tmp = 0; NtQueryInformationProcess(this->m_handle, ProcessBasicInformation, &process_info, sizeof(process_info), &tmp))
+			return {};
+
+		return this->read<PEB>(process_info.PebBaseAddress);
+	}
+	std::optional<Process::Module> Process::get_module(const std::string& name) const {
+		// special case (similar to GetModuleHandle(nullptr))
+		if (name.empty())
+			return this->m_process_module;
+
+		// find the module
+		if (const auto it = this->m_modules.find(name); it != this->m_modules.end())
+			return it->second;
+		return {};
 	}
 
 	void Process::read(const void* const address, void* const buffer, const size_t size) const {
@@ -57,34 +110,34 @@ namespace mango {
 		VirtualFreeEx(this->m_handle, address, size, type);
 	}
 
-	std::string Process::get_name() const {
-		char buffer[1024];
-		if (DWORD size = sizeof(buffer); !QueryFullProcessImageName(this->m_handle, 0, buffer, &size))
-			return "";
-
-		std::string name(buffer);
-
-		// erase everything before the last back slash
-		const size_t pos = name.find_last_of('\\');
-		if (pos != std::string::npos)
-			name = name.substr(pos + 1);
-
-		return name;
+	uint32_t Process::get_mem_prot(const void* const address) const {
+		if (MEMORY_BASIC_INFORMATION mbi; VirtualQueryEx(this->m_handle, address, &mbi, sizeof(mbi)))
+			return mbi.Protect;
+		return 0;
+	}
+	uint32_t Process::set_mem_prot(void* const address, const size_t size, const uint32_t protection) const {
+		if (DWORD old_protection = 0; VirtualProtectEx(this->m_handle, address, size, protection, &old_protection))
+			return old_protection;
+		return 0;
 	}
 
-	std::optional<PEB> Process::get_peb() const {
-		using NtQueryInformationProcessFn = NTSTATUS(__stdcall*)(HANDLE, PROCESSINFOCLASS, PVOID, ULONG, PULONG);
-		static const auto NtQueryInformationProcess = NtQueryInformationProcessFn(
-			GetProcAddress(GetModuleHandleA("ntdll.dll"), "NtQueryInformationProcess"));
+	void Process::update_modules() {
+		this->m_modules.clear();
 
-		if (!NtQueryInformationProcess)
-			return {};
+		HMODULE modules[1024];
 
-		// get address of the peb structure
-		PROCESS_BASIC_INFORMATION process_info;
-		if (DWORD tmp; NtQueryInformationProcess(this->m_handle, ProcessBasicInformation, &process_info, sizeof(process_info), &tmp))
-			return {};
-
-		return this->read<PEB>(process_info.PebBaseAddress);
+		// enumerate all loaded modules
+		if (DWORD size = 0; EnumProcessModules(this->m_handle, modules, sizeof(modules), &size)) {
+			// iterate over each module
+			for (size_t i = 0; i < size / sizeof(HMODULE); ++i) {
+				char name[256];
+				GetModuleBaseName(this->m_handle, modules[i], name, sizeof(name));
+				
+				// add to list
+				this->m_modules[name] = { uintptr_t(modules[i]) };
+			}
+		} else {
+			std::cout << "Failed to fetch modules." << std::endl;
+		}
 	}
 } // namespace mango
