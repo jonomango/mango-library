@@ -4,6 +4,8 @@
 #include <epic/pe_header.h>
 #include <epic/shellcode.h>
 #include <epic/inject.h>
+#include <epic/vmt_hook.h>
+#include <utils/logger.h>
 
 
 int main() {
@@ -12,7 +14,7 @@ int main() {
 		return 0;
 	}
 
-	mango::load_library(process, "frog.dll");
+
 
 	system("pause");
 	return 0;

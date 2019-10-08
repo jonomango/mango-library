@@ -19,17 +19,21 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\epic\vmt_hook.h" />
     <ClInclude Include="include\epic\inject.h" />
     <ClInclude Include="include\epic\pe_header.h" />
     <ClInclude Include="include\epic\process.h" />
     <ClInclude Include="include\epic\shellcode.h" />
+    <ClInclude Include="include\utils\logger.h" />
     <ClInclude Include="include\utils\utils.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\epic\vmt_hook.cpp" />
     <ClCompile Include="src\epic\inject.cpp" />
     <ClCompile Include="src\epic\pe_header.cpp" />
     <ClCompile Include="src\epic\process.cpp" />
     <ClCompile Include="src\epic\shellcode.cpp" />
+    <ClCompile Include="src\utils\logger.cpp" />
     <ClCompile Include="src\utils\utils.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
