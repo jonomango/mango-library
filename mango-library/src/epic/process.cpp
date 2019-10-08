@@ -14,7 +14,8 @@ namespace mango {
 			PROCESS_VM_READ | // ReadProcessMemory
 			PROCESS_VM_WRITE | // WriteProcessMemory
 			PROCESS_VM_OPERATION | // VirtualAllocEx / VirtualProtectEx
-			PROCESS_QUERY_LIMITED_INFORMATION, // QueryFullProcessImageName
+			PROCESS_QUERY_INFORMATION | // QueryFullProcessImageName
+			PROCESS_CREATE_THREAD, // CreateRemoteThread
 			FALSE, pid
 		);
 
@@ -134,6 +135,12 @@ namespace mango {
 			return 0;
 
 		return exp->m_address;
+	}
+
+	void Process::create_remote_thread(const void* const address) const {
+		const auto thread = CreateRemoteThread(this->m_handle, nullptr, 0,
+			LPTHREAD_START_ROUTINE(address), nullptr, 0, 0);
+		WaitForSingleObject(thread, INFINITE);
 	}
 
 	void Process::update_modules() {

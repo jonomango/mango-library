@@ -55,7 +55,7 @@ namespace mango {
 		// read from a memory address
 		void read(const void* const address, void* const buffer, const size_t size) const;
 		void read(const uintptr_t address, void* const buffer, const size_t size) const {
-			this->read(reinterpret_cast<const void* const>(address), buffer, size);
+			this->read(reinterpret_cast<void*>(address), buffer, size);
 		}
 
 		// easy-to-use wrapper for read()
@@ -67,7 +67,7 @@ namespace mango {
 		// write to a memory address
 		void write(void* const address, const void* const buffer, const size_t size) const;
 		void write(const uintptr_t address, const void* const buffer, const size_t size) const {
-			this->write(reinterpret_cast<void* const>(address), buffer, size);
+			this->write(reinterpret_cast<void*>(address), buffer, size);
 		}
 
 		// easy-to-use wrapper for write()
@@ -76,28 +76,38 @@ namespace mango {
 		}
 
 		// allocate virtual memory in the process (wrapper for VirtualAllocEx)
-		void* alloc_virt_mem(const size_t size, 
-			const uint32_t protection = PAGE_READWRITE, 
+		void* alloc_virt_mem(const size_t size,
+			const uint32_t protection = PAGE_READWRITE,
 			const uint32_t type = MEM_COMMIT | MEM_RESERVE) const;
 
 		// free virtual memory in the process (wrapper for VirtualFreeEx)
 		void free_virt_mem(void* const address, const size_t size, 
 			const uint32_t type = MEM_DECOMMIT | MEM_RELEASE) const;
+		void free_virt_mem(const uintptr_t address, const size_t size,
+			const uint32_t type = MEM_DECOMMIT | MEM_RELEASE) const {
+			this->free_virt_mem(reinterpret_cast<void*>(address), size, type);
+		}
 
 		// get the protection of a page of memory
 		uint32_t get_mem_prot(const void* const address) const;
 		uint32_t get_mem_prot(const uintptr_t address) const {
-			return this->get_mem_prot(reinterpret_cast<const void* const>(address));
+			return this->get_mem_prot(reinterpret_cast<void*>(address));
 		}
 
 		// set the protection, returns the old protection
 		uint32_t set_mem_prot(void* const address, const size_t size, const uint32_t protection) const;
 		uint32_t set_mem_prot(const uintptr_t address, const size_t size, const uint32_t protection) const {
-			return this->set_mem_prot(reinterpret_cast<void* const>(address), size, protection);
+			return this->set_mem_prot(reinterpret_cast<void*>(address), size, protection);
 		}
 
 		// same as GetProcAddress()
 		uintptr_t get_proc_addr(const std::string& module_name, const std::string& func_name) const;
+
+		// wrapper over CreateRemoteThread
+		void create_remote_thread(const void* const address) const;
+		void create_remote_thread(const uintptr_t address) const { 
+			this->create_remote_thread(reinterpret_cast<void*>(address)); 
+		}
 
 		// updates the internal list of modules
 		void update_modules();
