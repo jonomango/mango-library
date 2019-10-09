@@ -26,6 +26,7 @@
     <ClInclude Include="include\epic\shellcode.h" />
     <ClInclude Include="include\utils\logger.h" />
     <ClInclude Include="include\utils\utils.h" />
+    <ClInclude Include="include\utils\vector.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\epic\vmt_hook.cpp" />

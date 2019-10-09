@@ -59,5 +59,8 @@
     <ClInclude Include="include\utils\logger.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\utils\vector.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

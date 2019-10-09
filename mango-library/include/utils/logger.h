@@ -4,6 +4,7 @@
 
 
 namespace mango {
-	std::ostream& log();
-	std::wostream& wlog();
+	// for info
+	std::wostream& info();
+	std::wostream& error();
 } // namespace mango

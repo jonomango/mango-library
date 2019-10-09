@@ -5,15 +5,25 @@
 
 
 namespace mango {
-	std::ostream& log() {
-		std::cout << "[info] ";
-
-		return std::cout;
+	void set_attribute(const WORD attribute) {
+		static const auto handle = GetStdHandle(STD_OUTPUT_HANDLE);
+		SetConsoleTextAttribute(handle, attribute);
 	}
 
-	std::wostream& wlog() {
-		std::wcout << L"[info] ";
-
+	std::wostream& info() {
+		std::wcout << "[";
+		set_attribute(FOREGROUND_BLUE | FOREGROUND_GREEN);
+		std::wcout << "info";
+		set_attribute(FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED);
+		std::wcout << "] ";
+		return std::wcout;
+	}
+	std::wostream& error() {
+		std::wcout << "[";
+		set_attribute(FOREGROUND_RED);
+		std::wcout << "error";
+		set_attribute(FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED);
+		std::wcout << "] ";
 		return std::wcout;
 	}
 } // namespace mango

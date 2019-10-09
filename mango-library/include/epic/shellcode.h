@@ -64,4 +64,5 @@ namespace mango {
 
 	// lets you do stuff like std::cout << shellcode << std::endl;
 	std::ostream& operator<<(std::ostream& stream, const Shellcode& shellcode);
+	std::wostream& operator<<(std::wostream& stream, const Shellcode& shellcode);
 } // namespace mango
