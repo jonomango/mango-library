@@ -40,8 +40,8 @@ namespace mango {
 		// catch-all function
 		template <typename ...Args>
 		void push(const Args... args) {
-			// kinda a code hack but whatever /shrug
-			const int _unused[] = { 0, (this->push(args), 0)... };
+			// kinda a hack but whatever /shrug
+			const int _unused[] = { (this->push(args), 0)... };
 		}
 
 		// for integral types (ints, bytes, ...)

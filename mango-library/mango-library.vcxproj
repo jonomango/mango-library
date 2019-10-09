@@ -24,6 +24,7 @@
     <ClInclude Include="include\epic\pe_header.h" />
     <ClInclude Include="include\epic\process.h" />
     <ClInclude Include="include\epic\shellcode.h" />
+    <ClInclude Include="include\utils\color.h" />
     <ClInclude Include="include\utils\logger.h" />
     <ClInclude Include="include\utils\utils.h" />
     <ClInclude Include="include\utils\vector.h" />

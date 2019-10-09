@@ -5,17 +5,22 @@
 #include <iomanip>
 #include <numeric>
 
+// fkn windows
+#undef min
+#undef max
+
 
 namespace mango {
-	// vector class for arithmetic values
+	// vector class for math stuffz
 	template <typename T, const size_t C>
 	class Vector : public std::array<T, C> {
 	public:
-		constexpr Vector() : std::array<T, C>() {}
+		constexpr Vector() = default;
+		constexpr Vector(const T& value) { this->fill(value); }
 
 		// Vector(...) or Vector({...}) or Vector v = {...}
-		template <typename ...Args>
-		constexpr Vector(const Args... args) : std::array<T, C>({ args... }) {}
+		template <typename... Args>
+		constexpr Vector(const Args&... args) : std::array<T, C>({ T(args)... }) {}
 
 		// get the length (or magnitude) of a vector
 		template <const size_t D = C>
@@ -59,13 +64,13 @@ namespace mango {
 
 	private:
 		// only arithmetic values
-		static_assert(std::is_arithmetic<T>::value, "Non-arithmetic types not supported");
+		static_assert(std::is_arithmetic<T>::value, "Only arithmetic types supported");
 	};
 
 	// lets you do stuff like std::cout << vec;
 	template <typename T, const size_t C>
 	std::ostream& operator<<(std::ostream& stream, const Vector<T, C>& vec) {
-		stream << "[ " << vec.front();
+		stream << "[ " << +vec.front();
 		for (size_t i = 1; i < vec.size(); ++i)
 			stream << ", " << +vec[i];
 		stream << " ]";
@@ -75,7 +80,7 @@ namespace mango {
 	// lets you do stuff like std::wcout << vec;
 	template <typename T, const size_t C>
 	std::wostream& operator<<(std::wostream& stream, const Vector<T, C>& vec) {
-		stream << L"[ " << vec.front();
+		stream << L"[ " << +vec.front();
 		for (size_t i = 1; i < vec.size(); ++i)
 			stream << L", " << +vec[i];
 		stream << L" ]";

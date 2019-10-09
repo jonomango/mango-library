@@ -7,6 +7,7 @@
 #include <epic/vmt_hook.h>
 #include <utils/logger.h>
 #include <utils/vector.h>
+#include <utils/color.h>
 
 
 int main() {
@@ -15,11 +16,14 @@ int main() {
 		return 0;
 	}
 
-	mango::Vector<float, 3> vec(2.f, 1.f, 0.f);
-	std::cout << vec.length() << std::endl;
-	vec.normalize();
+	mango::Vector<float, 3> vec(2.f);
 	std::cout << vec << std::endl;
-	std::cout << vec.length() << std::endl;
+
+	mango::ColorRGBA<uint8_t> rgba;
+	std::cout << rgba << std::endl;
+
+	mango::ColorHSBA<float> hsba(0.f, 1.f, 0.f);
+	std::cout << hsba << std::endl;
 
 	system("pause");
 	return 0;
