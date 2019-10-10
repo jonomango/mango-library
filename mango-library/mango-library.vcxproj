@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\epic\iat_hook.h" />
     <ClInclude Include="include\epic\vmt_hook.h" />
     <ClInclude Include="include\epic\inject.h" />
     <ClInclude Include="include\epic\pe_header.h" />
@@ -30,6 +31,7 @@
     <ClInclude Include="include\utils\vector.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\epic\iat_hook.cpp" />
     <ClCompile Include="src\epic\vmt_hook.cpp" />
     <ClCompile Include="src\epic\inject.cpp" />
     <ClCompile Include="src\epic\pe_header.cpp" />

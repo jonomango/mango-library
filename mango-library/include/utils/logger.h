@@ -5,6 +5,6 @@
 
 namespace mango {
 	// for info
-	std::wostream& info();
-	std::wostream& error();
+	std::ostream& info();
+	std::ostream& error();
 } // namespace mango

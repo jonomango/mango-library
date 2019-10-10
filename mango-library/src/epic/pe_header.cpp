@@ -1,8 +1,9 @@
 #include <epic/pe_header.h>
 
-#include <epic/process.h>
 #include <iostream>
 #include <algorithm>
+
+#include <epic/process.h>
 
 
 namespace mango {
@@ -44,6 +45,9 @@ namespace mango {
 			process.read(address + name_addr, name, sizeof(name));
 			name[255] = '\0';
 
+			// change to lowercase
+			std::transform(std::begin(name), std::end(name), std::begin(name), std::tolower);
+
 			const auto ordinal = process.read<uint16_t>(address + ex_dir.AddressOfNameOrdinals + (i * 2));
 
 			// write to this for EAT hooking
@@ -57,7 +61,7 @@ namespace mango {
 
 		const uint32_t iat_rva = nt_header.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
 		uint32_t num_entries = nt_header.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size / sizeof(IMAGE_IMPORT_DESCRIPTOR);
-		num_entries = std::clamp(num_entries - 1, 0U, num_entries);
+		num_entries = max(num_entries - 1, num_entries);
 
 		// iterate through each function in the import address table
 		for (uint32_t i = 0; i < num_entries; i++) {
@@ -69,6 +73,9 @@ namespace mango {
 			char module_name[256];
 			process.read(address + iat_entry.Name, module_name, 256);
 			module_name[255] = '\0';
+
+			// change to lowercase
+			std::transform(std::begin(module_name), std::end(module_name), std::begin(module_name), std::tolower);
 
 			// iterate through each thunk
 			for (uint32_t j = 0; true; j += sizeof(IMAGE_THUNK_DATA32)) {
@@ -117,6 +124,9 @@ namespace mango {
 			process.read(address + name_addr, name, sizeof(name));
 			name[255] = '\0';
 
+			// change to lowercase
+			std::transform(std::begin(name), std::end(name), std::begin(name), std::tolower);
+
 			const auto ordinal = process.read<uint16_t>(address + ex_dir.AddressOfNameOrdinals + (i * 2));
 
 			// write to this for EAT hooking
@@ -130,7 +140,7 @@ namespace mango {
 
 		const uint32_t iat_rva = nt_header.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
 		uint32_t num_entries = nt_header.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size / sizeof(IMAGE_IMPORT_DESCRIPTOR);
-		num_entries = std::clamp(num_entries - 1, 0U, num_entries);
+		num_entries = max(num_entries - 1, num_entries);
 
 		// iterate through each function in the import address table
 		for (uint32_t i = 0; i < num_entries; i++) {
@@ -142,6 +152,9 @@ namespace mango {
 			char module_name[256];
 			process.read(address + iat_entry.Name, module_name, 256);
 			module_name[255] = '\0';
+
+			// change to lowercase
+			std::transform(std::begin(module_name), std::end(module_name), std::begin(module_name), std::tolower);
 
 			// iterate through each thunk
 			for (uint32_t j = 0; true; j += sizeof(IMAGE_THUNK_DATA64)) {

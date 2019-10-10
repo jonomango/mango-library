@@ -19,7 +19,7 @@ namespace mango {
 		using ProcessModules = std::unordered_map<std::string, Module>;
 
 	public:
-		Process(); // this uses the current process pid
+		Process() : Process(GetCurrentProcessId()) {}
 		Process(const uint32_t pid);
 
 		// clean up
@@ -50,7 +50,7 @@ namespace mango {
 		const ProcessModules& get_modules() const { return this->m_modules; }
 
 		// get a loaded module, case-insensitive (passing "" for name returns the current process module)
-		std::optional<Module> get_module(std::string name) const;
+		const Process::Module* get_module(std::string name) const;
 
 		// read from a memory address
 		void read(const void* const address, void* const buffer, const size_t size) const;
@@ -82,9 +82,9 @@ namespace mango {
 
 		// free virtual memory in the process (wrapper for VirtualFreeEx)
 		void free_virt_mem(void* const address, const size_t size, 
-			const uint32_t type = MEM_DECOMMIT | MEM_RELEASE) const;
+			const uint32_t type = MEM_RELEASE) const;
 		void free_virt_mem(const uintptr_t address, const size_t size,
-			const uint32_t type = MEM_DECOMMIT | MEM_RELEASE) const {
+			const uint32_t type = MEM_RELEASE) const {
 			this->free_virt_mem(reinterpret_cast<void*>(address), size, type);
 		}
 
@@ -112,7 +112,6 @@ namespace mango {
 		// updates the internal list of modules
 		void update_modules();
 
-	public:
 		// a more intuitive way to test for validity
 		explicit operator bool() const { return this->is_valid(); }
 
@@ -129,8 +128,8 @@ namespace mango {
 			m_is_self = false;
 		HANDLE m_handle = nullptr;
 		uint32_t m_pid = 0;
+		Module m_process_module;
 		ProcessModules m_modules;
 		std::string m_process_name;
-		std::optional<Module> m_process_module;
 	};
 } // namespace mango

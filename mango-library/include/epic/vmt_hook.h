@@ -6,22 +6,17 @@
 namespace mango {
 	class Process;
 
+	// manages all hooks for a specific instance
 	class VmtHook {
 	private:
-		// might change this
 		using OriginalFuncs = std::unordered_map<size_t, uintptr_t>;
 
 	public:
 		VmtHook() = default;
-		VmtHook(const Process& process, const uintptr_t instance) {
-			this->setup(process, instance);
-		}
-		VmtHook(const Process& process, const void* const instance) {
-			this->setup(process, uintptr_t(instance));
-		}
-		~VmtHook() {
-			this->release();
-		}
+		VmtHook(const Process& process, const uintptr_t instance) { this->setup(process, instance); }
+		VmtHook(const Process& process, const void* const instance) { this->setup(process, instance); }
+
+		~VmtHook() { this->release(); }
 
 		// instance is the address of the class instance to be hooked
 		void setup(const Process& process, const uintptr_t instance);
@@ -35,7 +30,7 @@ namespace mango {
 		// hook a function at the specified index (returns the original)
 		uintptr_t hook(const size_t index, const uintptr_t func);
 
-		// small wrapper over this->hook()
+		// wrapper
 		template <typename T = uintptr_t, typename C = uintptr_t>
 		T hook(const size_t index, C const func) {
 			return T(this->hook(index, uintptr_t(func)));
@@ -43,6 +38,10 @@ namespace mango {
 
 		// unhook a previously hooked function
 		void unhook(const size_t index);
+
+		// prevent copying
+		VmtHook(const VmtHook&) = delete;
+		VmtHook& operator=(const VmtHook&) = delete;
 
 	private:
 		// unhook also uses this

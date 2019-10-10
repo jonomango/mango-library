@@ -10,20 +10,20 @@ namespace mango {
 		SetConsoleTextAttribute(handle, attribute);
 	}
 
-	std::wostream& info() {
-		std::wcout << "[";
+	std::ostream& info() {
+		std::cout << "[";
 		set_attribute(FOREGROUND_BLUE | FOREGROUND_GREEN);
-		std::wcout << "info";
+		std::cout << "info";
 		set_attribute(FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED);
-		std::wcout << "] ";
-		return std::wcout;
+		std::cout << "] ";
+		return std::cout;
 	}
-	std::wostream& error() {
-		std::wcout << "[";
+	std::ostream& error() {
+		std::cout << "[";
 		set_attribute(FOREGROUND_RED);
-		std::wcout << "error";
+		std::cout << "error";
 		set_attribute(FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED);
-		std::wcout << "] ";
-		return std::wcout;
+		std::cout << "] ";
+		return std::cout;
 	}
 } // namespace mango

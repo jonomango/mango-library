@@ -4,12 +4,12 @@
 #include <algorithm>
 #include <Psapi.h>
 
+#include <utils/logger.h>
+
 
 namespace mango {
-	Process::Process() : Process(GetCurrentProcessId()) { 
-		this->m_is_self = true; 
-	}
 	Process::Process(const uint32_t pid) : m_pid(pid) {
+		// open a handle to the process
 		this->m_handle = OpenProcess(
 			PROCESS_VM_READ | // ReadProcessMemory
 			PROCESS_VM_WRITE | // WriteProcessMemory
@@ -21,18 +21,18 @@ namespace mango {
 
 		// whether we're valid or not depends entirely on OpenProcess()
 		this->m_is_valid = (this->m_handle != nullptr);
-		if (!this->is_valid())
+		if (!this->is_valid()) {
+			error() << "Call to OpenProcess() failed" << std::endl;
 			return;
+		}
 
-		// update the internal list of modules
-		this->update_modules();
+		this->m_is_self = (pid == GetCurrentProcessId());
 
 		// cache the process name
 		this->m_process_name = this->query_name();
 
-		// cache the process' module
-		if (const auto it = this->m_modules.find(this->get_name()); it != this->m_modules.end())
-			this->m_process_module = it->second;
+		// update the internal list of modules
+		this->update_modules();
 	}
 	Process::~Process() {
 		if (!this->m_is_valid)
@@ -53,8 +53,10 @@ namespace mango {
 	}
 	std::string Process::query_name() const {
 		char buffer[1024];
-		if (DWORD size = sizeof(buffer); !QueryFullProcessImageName(this->m_handle, 0, buffer, &size))
+		if (DWORD size = sizeof(buffer); !QueryFullProcessImageName(this->m_handle, 0, buffer, &size)) {
+			error() << "Call to QueryFullProcessImageName() failed" << std::endl;
 			return "";
+		}
 
 		std::string name(buffer);
 
@@ -70,28 +72,29 @@ namespace mango {
 		static const auto NtQueryInformationProcess = NtQueryInformationProcessFn(
 			GetProcAddress(GetModuleHandleA("ntdll.dll"), "NtQueryInformationProcess"));
 
-		if (!NtQueryInformationProcess)
-			return {};
-
 		// get address of the peb structure
 		PROCESS_BASIC_INFORMATION process_info;
-		if (DWORD tmp = 0; NtQueryInformationProcess(this->m_handle, ProcessBasicInformation, &process_info, sizeof(process_info), &tmp))
+		if (DWORD tmp = 0; NtQueryInformationProcess(this->m_handle, ProcessBasicInformation, &process_info, sizeof(process_info), &tmp)) {
+			error() << "Call to NtQueryInformationProcess() failed" << std::endl;
 			return {};
+		}
 
 		return this->read<PEB>(process_info.PebBaseAddress);
 	}
-	std::optional<Process::Module> Process::get_module(std::string name) const {
+	const Process::Module* Process::get_module(std::string name) const {
 		// special case (similar to GetModuleHandle(nullptr))
 		if (name.empty())
-			return this->m_process_module;
+			return &this->m_process_module;
 
 		// change to lowercase
 		std::transform(name.begin(), name.end(), name.begin(), std::tolower);
 
 		// find the module
 		if (const auto it = this->m_modules.find(name); it != this->m_modules.end())
-			return it->second;
-		return {};
+			return &it->second;
+
+		error() << "Failed to find module - " << name << std::endl;
+		return nullptr;
 	}
 
 	void Process::read(const void* const address, void* const buffer, const size_t size) const {
@@ -117,11 +120,15 @@ namespace mango {
 	uint32_t Process::get_mem_prot(const void* const address) const {
 		if (MEMORY_BASIC_INFORMATION mbi; VirtualQueryEx(this->m_handle, address, &mbi, sizeof(mbi)))
 			return mbi.Protect;
+
+		error() << "Call to VirtualQueryEx() failed" << std::endl;
 		return 0;
 	}
 	uint32_t Process::set_mem_prot(void* const address, const size_t size, const uint32_t protection) const {
 		if (DWORD old_protection = 0; VirtualProtectEx(this->m_handle, address, size, protection, &old_protection))
 			return old_protection;
+
+		error() << "Call to VirtualProtectEx() failed" << std::endl;
 		return 0;
 	}
 
@@ -163,8 +170,11 @@ namespace mango {
 				// add to list
 				this->m_modules[name] = PeHeader(*this, modules[i]);
 			}
+
+			// cache the process' module
+			this->m_process_module = this->m_modules.at(this->get_name());
 		} else {
-			std::cout << "Failed to update modules." << std::endl;
+			error() << "Call to EnumProcessModules() failed" << std::endl;
 		}
 	}
 } // namespace mango

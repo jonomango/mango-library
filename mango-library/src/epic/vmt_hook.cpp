@@ -1,6 +1,7 @@
 #include <epic/vmt_hook.h>
 
 #include <epic/process.h>
+#include <utils/logger.h>
 
 
 namespace mango {
@@ -22,16 +23,25 @@ namespace mango {
 		// unhook all hooked functions
 		for (const auto& [index, addr] : this->m_original_funcs)
 			this->hook_internal(index, addr);
-		this->m_original_funcs.clear();
 
+		this->m_original_funcs.clear();
 		this->m_process = nullptr;
 		this->m_vtable = 0;
 	}
 
 	// hook a function at the specified index (returns the original)
 	uintptr_t VmtHook::hook(const size_t index, const uintptr_t func) {
+		// if function already hooked
+		if (this->m_original_funcs.find(index) != this->m_original_funcs.end()) {
+			error() << "Virtual method at index " << index << " already hooked." << std::endl;
+			return 0;
+		}
+
 		const auto original = this->hook_internal(index, func);
-		return this->m_original_funcs[index] = original;
+		if (original) 
+			return this->m_original_funcs[index] = original;
+
+		return 0;
 	}
 
 	// unhook a previously hooked function
@@ -39,6 +49,8 @@ namespace mango {
 		if (const auto it = this->m_original_funcs.find(index); it != this->m_original_funcs.end()) {
 			this->hook_internal(index, it->second);
 			this->m_original_funcs.erase(it);
+		} else {
+			error() << "Virtual method at index " << index << " not hooked." << std::endl;
 		}
 	}
 
