@@ -8,7 +8,7 @@
 #include <Windows.h>
 #include <winternl.h>
 
-#include <epic/pe_header.h>
+#include "pe_header.h"
 
 
 namespace mango {
@@ -32,7 +32,10 @@ namespace mango {
 		bool is_self() const { return this->m_is_self; }
 
 		// check if process is 64 or 32 bit
-		bool is_64bit() const;
+		bool is_64bit() const { return this->m_is_64bit; }
+
+		// get the size of a pointer
+		size_t get_ptr_size() const { return this->is_64bit() ? 8 : 4; }
 
 		// get the underlying handle that is used for operations such as reading and writing
 		HANDLE get_handle() const { return this->m_handle; }
@@ -51,6 +54,16 @@ namespace mango {
 
 		// get a loaded module, case-insensitive (passing "" for name returns the current process module)
 		const Process::Module* get_module(std::string name) const;
+
+		// get the base address of a module
+		uintptr_t get_module_addr(const std::string& module_name) const;
+
+		// this uses the internal list of modules to find the function
+		// not as consistant as the implementation below but probably faster
+		uintptr_t get_proc_addr(const std::string& module_name, const std::string& func_name) const;
+
+		// this is just GetProcAddress() called in the remote process
+		uintptr_t get_proc_addr(const uintptr_t hmodule, const std::string& func_name) const;
 
 		// read from a memory address
 		void read(const void* const address, void* const buffer, const size_t size) const;
@@ -100,14 +113,19 @@ namespace mango {
 			return this->set_mem_prot(reinterpret_cast<void*>(address), size, protection);
 		}
 
-		// same as GetProcAddress()
-		uintptr_t get_proc_addr(const std::string& module_name, const std::string& func_name) const;
-
 		// wrapper over CreateRemoteThread
 		void create_remote_thread(const void* const address) const;
 		void create_remote_thread(const uintptr_t address) const { 
 			this->create_remote_thread(reinterpret_cast<void*>(address)); 
 		}
+
+		// inject a dll into another process (using LoadLibrary)
+		uintptr_t load_library(const std::string& dll_path) const;
+
+		// manual map a dll into another process
+		// SEVERE BUGS if module is already mapped into the process via LoadLibrary
+		uintptr_t manual_map(const std::string& dll_path) const;
+		uintptr_t manual_map(const uint8_t* const image) const;
 
 		// updates the internal list of modules
 		void update_modules();
@@ -123,9 +141,13 @@ namespace mango {
 		// get the name of the process (to cache it)
 		std::string query_name() const;
 
+		// check whether the process is 64bit or not (to cache it)
+		bool query_is_64bit() const;
+
 	private:
 		bool m_is_valid = false,
-			m_is_self = false;
+			m_is_self = false, 
+			m_is_64bit = false;
 		HANDLE m_handle = nullptr;
 		uint32_t m_pid = 0;
 		Module m_process_module;

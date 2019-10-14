@@ -9,8 +9,7 @@
 namespace mango {
 	class Process;
 
-	// sorta RAII, except no need to free/release anything after object lifetime
-	// this means that copying is allowed
+	// copying is allowed
 	class PeHeader {
 	public:
 		struct PeEntry {
@@ -22,6 +21,9 @@ namespace mango {
 		using ExportedFuncs = std::unordered_map<std::string /* func name */, PeEntry>;
 		using ImportedFuncs = std::unordered_map<std::string /* module name */, 
 			std::unordered_map<std::string /* func name */, PeEntry>>;
+
+		template <bool>
+		friend bool setup_internal(PeHeader* pe_header, const Process& process, const uintptr_t address);
 
 	public:
 		PeHeader() = default; // should never use this but permits the use of some std containers
@@ -44,11 +46,6 @@ namespace mango {
 		// get imported functions
 		const ImportedFuncs& get_imports() const { return this->m_imported_funcs; }
 		std::optional<PeEntry> get_import(const std::string module_name, const std::string func_name) const;
-
-	private:
-		// architecture dependent
-		bool setup32(const Process& process, const uintptr_t address);
-		bool setup64(const Process& process, const uintptr_t address);
 
 	public:
 		// a more intuitive way to test for validity

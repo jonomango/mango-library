@@ -1,7 +1,7 @@
-#include <epic/vmt_hook.h>
+#include "../../include/epic/vmt_hook.h"
 
-#include <epic/process.h>
-#include <utils/logger.h>
+#include "../../include/epic/process.h"
+#include "../../include/utils/logger.h"
 
 
 namespace mango {

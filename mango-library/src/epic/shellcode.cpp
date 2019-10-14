@@ -1,8 +1,8 @@
-#include <epic/shellcode.h>
+#include "../../include/epic/shellcode.h"
 
 #include <iomanip>
 
-#include <epic/process.h>
+#include "../../include/epic/process.h"
 
 
 namespace mango {

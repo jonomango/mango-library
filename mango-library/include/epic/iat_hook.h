@@ -3,7 +3,7 @@
 #include <string>
 #include <unordered_map>
 
-#include <epic/pe_header.h>
+#include "pe_header.h"
 
 
 namespace mango {
@@ -34,6 +34,7 @@ namespace mango {
 		// hook a function
 		uintptr_t hook(std::string module_name, const std::string& func_name, const uintptr_t func);
 
+		// wrapper
 		template <typename T = uintptr_t, typename C = uintptr_t>
 		T hook(const std::string& module_name, const std::string& func_name, C const func) {
 			return T(hook(module_name, func_name, uintptr_t(func)));

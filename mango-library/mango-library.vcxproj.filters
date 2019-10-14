@@ -53,9 +53,6 @@
     <ClInclude Include="include\epic\shellcode.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\epic\inject.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="include\epic\vmt_hook.h">
       <Filter>Header Files</Filter>
     </ClInclude>

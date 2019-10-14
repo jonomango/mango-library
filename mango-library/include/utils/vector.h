@@ -22,6 +22,20 @@ namespace mango {
 		template <typename... Args>
 		constexpr Vector(const Args&... args) : std::array<T, C>({ T(args)... }) {}
 
+		// constexpr accumulate function
+		template <typename Fn>
+		constexpr T accumulate(const size_t start, const size_t end, const T initial, const Fn op) const {
+			T value = initial;
+			for (size_t i = start; i < end; ++i)
+				value = op(value, this->at(i));
+			return value;
+		}
+
+		// default op is std::plus
+		constexpr T accumulate(const size_t start, const size_t end, const T initial) const {
+			return this->accumulate(start, end, initial, std::plus<T>());
+		}
+
 		// get the length (or magnitude) of a vector
 		template <const size_t D = C>
 		double length() const {
@@ -34,7 +48,7 @@ namespace mango {
 				return acc + x * x;
 			};
 
-			const auto total = std::accumulate(this->begin(), this->begin() + D, 0.0, square);
+			const auto total = this->accumulate(0, D, 0.0, square);
 			if (!total)
 				return 0.0;
 
@@ -49,17 +63,30 @@ namespace mango {
 			const auto length = this->length();
 
 			// can't divide by 0
-			if (!length) {
-				this->fill(T(0));
+			if (!length)
 				return;
-			}
 
-			const auto divide = [length](const T x) {
+			const auto divide = [=](const T x) {
 				return T(x / length);
 			};
 
 			// divide all elements by length
 			std::transform(this->begin(), this->end(), this->begin(), divide);
+		}
+
+		// find the mean (obviously)
+		constexpr double mean() const {
+			return this->accumulate(0, this->size(), 0.0) / double(C);
+		}
+
+		// find the median (obviously)
+		// also it returns double instead of T due to cases where C is even
+		constexpr double median() const {
+			const auto center = C / 2 - 1;
+			if (C % 2 == 0) // even
+				return (double(this->at(center)) + double(this->at(center + 1))) / 2.0;
+			else // odd
+				return double(this->at(center));
 		}
 
 	private:

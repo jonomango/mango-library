@@ -1,9 +1,9 @@
-#include <epic/iat_hook.h>
+#include "../../include/epic/iat_hook.h"
 
 #include <algorithm>
 
-#include <epic/process.h>
-#include <utils/logger.h>
+#include "../../include/epic/process.h"
+#include "../../include/utils/logger.h"
 
 
 namespace mango {
