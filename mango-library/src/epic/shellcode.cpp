@@ -20,15 +20,6 @@ namespace mango {
 		this->free(process, address);
 	}
 
-	void Shellcode::push(const char* const str) {
-		const auto length = strlen(str);
-		const auto old_size = this->m_data.size();
-
-		// copy
-		this->m_data.resize(this->m_data.size() + length);
-		memcpy_s(this->m_data.data() + old_size, length, str, length);
-	}
-
 	std::ostream& operator<<(std::ostream& stream, const Shellcode& shellcode) {
 		stream << "[ ";
 

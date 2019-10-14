@@ -3,7 +3,10 @@
 #include <vector>
 #include <array>
 #include <ostream>
+#include <iostream>
 
+#pragma warning( push )
+#pragma warning( disable : 4834)
 
 namespace mango {
 	class Process;
@@ -17,7 +20,7 @@ namespace mango {
 
 		// same as Shellcode s(); s.push(args);
 		template <typename ...Args>
-		Shellcode(const Args... args) { this->push(args...); }
+		Shellcode(Args&& ...args) { this->push(std::forward<Args>(args)...);  }
 
 		// allocate memory in the target process and write shellcode to the address
 		void* allocate(const Process& process) const;
@@ -39,24 +42,36 @@ namespace mango {
 
 		// catch-all function
 		template <typename ...Args>
-		void push(const Args... args) {
+		void push(Args&& ...args) {
 			// kinda a hack but whatever /shrug
-			const int _unused[] = { (this->push(args), 0)... };
+			const int _unused[] = { (this->push(std::forward<Args>(args)), 0)... };
 		}
 
-		// for integral types (ints, bytes, ...)
 		template <typename T>
-		void push(const T value) {
-			static_assert(std::is_integral<T>::value, "type not supported");
-			
-			// could use a loop instead but this is probably faster
-			const auto old_size = this->m_data.size();
-			this->m_data.resize(this->m_data.size() + sizeof(value));
-			*reinterpret_cast<T*>(this->m_data.data() + old_size) = value;
-		}
+		void push(T&& value) {
+			using Type = std::remove_const_t<std::remove_reference_t<T>>;
 
-		// c-strings
-		void push(const char* const str);
+			// for integral types
+			if constexpr (std::is_integral_v<Type>) {
+				// resize
+				const auto old_size = this->m_data.size();
+				this->m_data.resize(this->m_data.size() + sizeof(value));
+
+				// copy
+				*reinterpret_cast<Type*>(this->m_data.data() + old_size) = value;
+			} else if constexpr (sizeof(value[0]) == 1 && std::is_array_v<Type>) { // byte arrays
+				constexpr auto length = sizeof(value) - 1;
+
+				// resize
+				const auto old_size = this->m_data.size();
+				this->m_data.resize(this->m_data.size() + length);
+
+				// copy into this->m_data
+				memcpy_s(this->m_data.data() + old_size, length, &value, length);
+			} else { // other types
+				static_assert(false, "Only integral types or byte arrays allowed");
+			}
+		}
 
 	private:
 		ShellcodeData m_data;
@@ -66,3 +81,5 @@ namespace mango {
 	std::ostream& operator<<(std::ostream& stream, const Shellcode& shellcode);
 	std::wostream& operator<<(std::wostream& stream, const Shellcode& shellcode);
 } // namespace mango
+
+#pragma warning( pop )

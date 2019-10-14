@@ -14,8 +14,6 @@ namespace mango {
 		if (this->m_is_valid)
 			this->release();
 
-		this->m_pid = pid;
-
 		// open a handle to the process
 		this->m_handle = OpenProcess(
 			PROCESS_VM_READ | // ReadProcessMemory
@@ -33,6 +31,7 @@ namespace mango {
 			return false;
 		}
 
+		this->m_pid = pid;
 		this->m_is_self = (pid == GetCurrentProcessId());
 
 		// cache some info
