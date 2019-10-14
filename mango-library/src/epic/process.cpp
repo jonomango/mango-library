@@ -9,7 +9,13 @@
 
 
 namespace mango {
-	Process::Process(const uint32_t pid) : m_pid(pid) {
+	bool Process::setup(const uint32_t pid) {
+		// release, then setup
+		if (this->m_is_valid)
+			this->release();
+
+		this->m_pid = pid;
+
 		// open a handle to the process
 		this->m_handle = OpenProcess(
 			PROCESS_VM_READ | // ReadProcessMemory
@@ -24,7 +30,7 @@ namespace mango {
 		this->m_is_valid = (this->m_handle != nullptr);
 		if (!this->is_valid()) {
 			error() << "Call to OpenProcess() failed" << std::endl;
-			return;
+			return false;
 		}
 
 		this->m_is_self = (pid == GetCurrentProcessId());
@@ -35,8 +41,10 @@ namespace mango {
 
 		// update the internal list of modules
 		this->update_modules();
+
+		return true;
 	}
-	Process::~Process() {
+	void Process::release() {
 		if (!this->m_is_valid)
 			return;
 

@@ -19,11 +19,15 @@ namespace mango {
 		using ProcessModules = std::unordered_map<std::string, Module>;
 
 	public:
-		Process() : Process(GetCurrentProcessId()) {}
-		Process(const uint32_t pid);
+		Process() = default; // left in an invalid state
+		Process(const uint32_t pid) { this->setup(pid); }
+		~Process() { this->release(); }
+
+		// initialization
+		bool setup(const uint32_t pid);
 
 		// clean up
-		~Process();
+		void release();
 
 		// if Process is not valid, any operations on it are undefined behavior
 		bool is_valid() const { return this->m_is_valid; }
