@@ -15,7 +15,7 @@ public:\
 namespace mango {
 	using MangoError = std::exception;
 
-	MANGO_CREATE_ERROR(InvalidProcessHandle, "Failed to get a valid process handle. Usually caused by insufficient permissions.");
+	MANGO_CREATE_ERROR(InvalidProcessHandle, "Failed to get a valid process handle. Usually caused by insufficient permissions or invalid process ID.");
 	MANGO_CREATE_ERROR(InvalidFileHandle, "Failed to get a valid file handle. Usually caused by a non-existant file.");
 	MANGO_CREATE_ERROR(InvalidFileSize, "Invalid file size.");
 	MANGO_CREATE_ERROR(InvalidPEHeader, "Invalid PE header.");
