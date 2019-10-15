@@ -3,21 +3,21 @@
 #include <algorithm>
 
 #include "../../include/epic/process.h"
-#include "../../include/utils/logger.h"
+#include "../../include/misc/logger.h"
+#include "../../include/misc/error_codes.h"
 
 
 namespace mango {
 	// all hooks will only affect the specified module
-	bool IatHook::setup(const Process& process, const uintptr_t module_address) {
+	void IatHook::setup(const Process& process, const uintptr_t module_address) {
+		if (this->is_valid())
+			this->release();
+
 		// parse pe header
 		if (const auto pe_header = PeHeader(process, module_address); pe_header) {
 			this->m_iat = pe_header.get_imports();
 			this->m_process = &process;
-			return true;
 		}
-
-		this->m_process = nullptr;
-		return false;
 	}
 
 	// unhooks everything
@@ -26,8 +26,8 @@ namespace mango {
 			return;
 
 		// unhook every function
-		for (const auto [module_name, funcs] : this->m_hooked_funcs)
-			for (const auto [func_name, address] : funcs)
+		for (const auto& [module_name, funcs] : this->m_hooked_funcs)
+			for (const auto& [func_name, address] : funcs)
 				this->hook_internal(module_name, func_name, address);
 
 		this->m_hooked_funcs.clear();
@@ -42,10 +42,8 @@ namespace mango {
 		// make sure not hooked already
 		if (const auto & functions = this->m_hooked_funcs.find(module_name); functions != this->m_hooked_funcs.end()) {
 			const auto& it = functions->second.find(func_name);
-			if (it != functions->second.end()) {
-				error() << "Function already hooked - " << module_name << ":" << func_name << std::endl;
-				return 0;
-			}
+			if (it != functions->second.end())
+				throw FunctionAlreadyHooked();
 		}
 
 		const auto original = this->hook_internal(module_name, func_name, func);
@@ -61,17 +59,14 @@ namespace mango {
 		std::transform(module_name.begin(), module_name.end(), module_name.begin(), std::tolower);
 
 		const auto& functions = this->m_hooked_funcs.find(module_name);
-		if (functions == this->m_hooked_funcs.end()) {
-			error() << "Function not hooked - " << module_name << ":" << func_name << std::endl;
+		if (functions == this->m_hooked_funcs.end()) // not hooked
 			return;
-		}
 
 		const auto& func = functions->second.find(func_name);
-		if (func == functions->second.end()) {
-			error() << "Function not hooked - " << module_name << ":" << func_name << std::endl;
+		if (func == functions->second.end()) // not hooked
 			return;
-		}
 
+		// unhook
 		if (this->hook_internal(module_name, func_name, func->second))
 			functions->second.erase(func);
 	}
@@ -79,16 +74,12 @@ namespace mango {
 	// unhook also uses this
 	uintptr_t IatHook::hook_internal(const std::string& module_name, const std::string& func_name, const uintptr_t func) {
 		const auto it = this->m_iat.find(module_name);
-		if (it == this->m_iat.end()) {
-			error() << "Module not found in Import Address Table - " << module_name << std::endl;
-			return 0;
-		}
+		if (it == this->m_iat.end())
+			throw FailedToFindImportModule();
 
 		const auto entry = it->second.find(func_name);
-		if (entry == it->second.end()) {
-			error() << "Function not found in Import Address Table - " << module_name << ":" << func_name << std::endl;
-			return 0;
-		}
+		if (entry == it->second.end())
+			throw FailedToFindImportFunction();
 
 		// the address of where the virtual function is
 		const auto address = entry->second.m_table_address;

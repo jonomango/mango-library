@@ -5,8 +5,6 @@
 #include <ostream>
 #include <iostream>
 
-#pragma warning( push )
-#pragma warning( disable : 4834)
 
 namespace mango {
 	class Process;
@@ -81,5 +79,3 @@ namespace mango {
 	std::ostream& operator<<(std::ostream& stream, const Shellcode& shellcode);
 	std::wostream& operator<<(std::wostream& stream, const Shellcode& shellcode);
 } // namespace mango
-
-#pragma warning( pop )

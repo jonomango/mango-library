@@ -1,16 +1,17 @@
-#include <epic/process.h>
-#include <epic/shellcode.h>
+#include <iostream>
 
-#include <utils/logger.h>
+#include "tests.h"
+
+
+// TODO:
+// * unit test utils
+// * better logger
+// *
 
 
 int main() {
-	mango::Process process(GetCurrentProcessId());
-	if (!process)
-		return 0;
+	run_unit_tests();
 
-	process.manual_map("frog-x64.dll");
-
-	system("pause");
+	getchar();
 	return 0;
 }

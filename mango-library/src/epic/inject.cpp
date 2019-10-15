@@ -1,7 +1,8 @@
 #include "../../include/epic/process.h"
 
 #include "../../include/epic/shellcode.h"
-#include "../../include/utils/logger.h"
+#include "../../include/misc/logger.h"
+#include "../../include/misc/error_codes.h"
 
 #undef min
 
@@ -15,24 +16,16 @@ namespace mango {
 
 		// dos header
 		const auto dos_header = PIMAGE_DOS_HEADER(image);
-		if (dos_header->e_magic != IMAGE_DOS_SIGNATURE) {
-			mango::error() << "Invalid DOS header" << std::endl;
-			return 0;
-		}
+		if (dos_header->e_magic != IMAGE_DOS_SIGNATURE)
+			throw InvalidPEHeader();
 
 		// nt header
 		const auto nt_header = pimage_nt_headers(image + dos_header->e_lfanew);
-		if (nt_header->Signature != IMAGE_NT_SIGNATURE) {
-			mango::error() << "Invalid NT header" << std::endl;
-			return 0;
-		}
+		if (nt_header->Signature != IMAGE_NT_SIGNATURE)
+			throw InvalidPEHeader();
 
 		// base address of the module in memory
 		const auto module_base = uintptr_t(process.alloc_virt_mem(nt_header->OptionalHeader.SizeOfImage, PAGE_EXECUTE_READWRITE));
-		if (!module_base) {
-			mango::error() << "Failed to allocate module base" << std::endl;
-			return 0;
-		}
 
 		// copy the pe header to memory
 		process.write(module_base, image, nt_header->OptionalHeader.SizeOfHeaders);
@@ -66,12 +59,12 @@ namespace mango {
 			curr_reloc_addr += relocation.SizeOfBlock;
 		}
 
-		const uint32_t iat_rva = nt_header->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
-		uint32_t num_entries = nt_header->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size / sizeof(IMAGE_IMPORT_DESCRIPTOR);
+		const auto iat_rva = nt_header->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
+		size_t num_entries = nt_header->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size / sizeof(IMAGE_IMPORT_DESCRIPTOR);
 		num_entries = std::min(num_entries - 1, num_entries);
 
 		// iterate through each function in the import address table
-		for (uint32_t i = 0; i < num_entries; i++) {
+		for (size_t i = 0; i < num_entries; i++) {
 			const auto iat_entry = process.read<IMAGE_IMPORT_DESCRIPTOR>(module_base + iat_rva + (i * sizeof(IMAGE_IMPORT_DESCRIPTOR)));
 			if (iat_entry.Name >= nt_header->OptionalHeader.SizeOfImage || iat_entry.OriginalFirstThunk >= nt_header->OptionalHeader.SizeOfImage)
 				break;
@@ -86,7 +79,7 @@ namespace mango {
 				module_addr = process.load_library(module_name);
 
 			// iterate through each thunk
-			for (uint32_t j = 0; true; j += sizeof(image_thunk_data)) {
+			for (uintptr_t j = 0; true; j += sizeof(image_thunk_data)) {
 				const auto orig_thunk = process.read<image_thunk_data>(module_base + iat_entry.OriginalFirstThunk + j);
 				if (orig_thunk.u1.AddressOfData >= nt_header->OptionalHeader.SizeOfImage)
 					break;
@@ -119,7 +112,7 @@ namespace mango {
 				).execute(process);
 			} else {
 				Shellcode(
-					"\x68", 0ui32, // push 0
+					"\x68", uint32_t(0), // push 0
 					"\x68", uint32_t(DLL_PROCESS_ATTACH), // push DLL_PROCESS_ATTACH
 					"\x68", uint32_t(module_base), // push module_base
 					"\xB8", uint32_t(entry_point), // mov eax, entry_point
@@ -134,24 +127,14 @@ namespace mango {
 
 	uintptr_t Process::load_library(const std::string& dll_path) const {
 		const auto func_addr = this->get_proc_addr("kernel32.dll", "LoadLibraryA");
-		if (!func_addr) {
-			error() << "Failed to get LoadLibraryA address" << std::endl;
-			return 0;
-		}
+		if (!func_addr)
+			throw FailedToGetFunctionAddress();
 
 		// this will be where the dll path is stored in the process
 		const auto str_address = uintptr_t(this->alloc_virt_mem(dll_path.size() + 1));
-		if (!str_address) {
-			error() << "Failed to allocate virtual memory" << std::endl;
-			return 0;
-		}
 
 		// for the return value of LoadLibraryA
 		const auto ret_address = uintptr_t(this->alloc_virt_mem(this->get_ptr_size()));
-		if (!ret_address) {
-			error() << "Failed to allocate virtual memory" << std::endl;
-			return 0;
-		}
 
 		// write the dll name
 		this->write(str_address, dll_path.data(), dll_path.size() + 1);
@@ -187,8 +170,8 @@ namespace mango {
 		}
 		
 		// free memory
-		this->free_virt_mem(str_address, dll_path.size() + 1);
-		this->free_virt_mem(ret_address, this->get_ptr_size());
+		this->free_virt_mem(str_address);
+		this->free_virt_mem(ret_address);
 
 		// truncated if called from a 64bit program to a 32bit program
 		return ret_value;
@@ -200,36 +183,28 @@ namespace mango {
 			dll_path.c_str(),
 			GENERIC_READ,
 			FILE_SHARE_READ | FILE_SHARE_WRITE,
-			NULL,
+			nullptr,
 			OPEN_EXISTING,
 			FILE_ATTRIBUTE_NORMAL,
-			NULL);
+			nullptr);
 
 		// invalid handle
-		if (file_handle == INVALID_HANDLE_VALUE) {
-			mango::error() << "Failed to open file handle" << std::endl;
-			return false;
-		}
+		if (file_handle == INVALID_HANDLE_VALUE)
+			throw InvalidFileHandle();
 
 		// file size
 		const auto file_size = GetFileSize(file_handle, NULL);
-		if (file_size == INVALID_FILE_SIZE) {
-			mango::error() << "Invalid file size" << std::endl;
-			return false;
-		}
+		if (file_size == INVALID_FILE_SIZE)
+			throw InvalidFileSize();
 
 		// allocate a buffer for the file contents
 		const auto image_buffer = static_cast<uint8_t*>(VirtualAlloc(nullptr, file_size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
-		if (!image_buffer) {
-			mango::error() << "Failed to allocate image buffer" << std::endl;
-			return 0;
-		}
+		if (!image_buffer)
+			throw FailedToAllocateVirtualMemory();
 
 		// read file
-		if (DWORD num_bytes = 0; !ReadFile(file_handle, image_buffer, file_size, &num_bytes, FALSE)) {
-			mango::error() << "Failed to read file" << std::endl;
-			return 0;
-		}
+		if (DWORD num_bytes = 0; !ReadFile(file_handle, image_buffer, file_size, &num_bytes, FALSE))
+			throw FailedToReadFile();
 
 		// don't need it anymore
 		CloseHandle(file_handle);

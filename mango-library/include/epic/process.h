@@ -12,7 +12,6 @@
 
 
 namespace mango {
-	// RAII
 	class Process {
 	public:
 		using Module = PeHeader; // might change this later if too much overhead
@@ -21,22 +20,22 @@ namespace mango {
 	public:
 		Process() = default; // left in an invalid state
 		Process(const uint32_t pid) { this->setup(pid); }
-		~Process() { this->release(); }
+		~Process() noexcept { this->release(); }
 
 		// initialization
-		bool setup(const uint32_t pid);
+		void setup(const uint32_t pid);
 
 		// clean up
-		void release();
+		void release() noexcept;
 
 		// if Process is not valid, any operations on it are undefined behavior
-		bool is_valid() const { return this->m_is_valid; }
+		bool is_valid() const noexcept { return this->m_is_valid; }
 
 		// if the Process is itself
-		bool is_self() const { return this->m_is_self; }
+		bool is_self() const noexcept { return this->m_is_self; }
 
 		// check if process is 64 or 32 bit
-		bool is_64bit() const { return this->m_is_64bit; }
+		bool is_64bit() const noexcept { return this->m_is_64bit; }
 
 		// get the size of a pointer
 		size_t get_ptr_size() const { return this->is_64bit() ? 8 : 4; }
@@ -76,7 +75,8 @@ namespace mango {
 		}
 
 		// easy-to-use wrapper for read()
-		template <typename T, typename Addr> T read(Addr const address) const {
+		template <typename T, typename Addr> 
+		T read(Addr const address) const {
 			T buffer; this->read(address, &buffer, sizeof(buffer));
 			return buffer;
 		}
@@ -88,7 +88,8 @@ namespace mango {
 		}
 
 		// easy-to-use wrapper for write()
-		template <typename T, typename Addr> void write(Addr const address, const T& value) const {
+		template <typename T, typename Addr> 
+		void write(Addr const address, const T& value) const {
 			this->write(address, &value, sizeof(value));
 		}
 
@@ -98,9 +99,9 @@ namespace mango {
 			const uint32_t type = MEM_COMMIT | MEM_RESERVE) const;
 
 		// free virtual memory in the process (wrapper for VirtualFreeEx)
-		void free_virt_mem(void* const address, const size_t size, 
+		void free_virt_mem(void* const address, const size_t size = 0, 
 			const uint32_t type = MEM_RELEASE) const;
-		void free_virt_mem(const uintptr_t address, const size_t size,
+		void free_virt_mem(const uintptr_t address, const size_t size = 0,
 			const uint32_t type = MEM_RELEASE) const {
 			this->free_virt_mem(reinterpret_cast<void*>(address), size, type);
 		}

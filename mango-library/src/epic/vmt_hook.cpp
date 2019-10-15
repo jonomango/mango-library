@@ -1,12 +1,16 @@
 #include "../../include/epic/vmt_hook.h"
 
 #include "../../include/epic/process.h"
-#include "../../include/utils/logger.h"
+#include "../../include/misc/logger.h"
+#include "../../include/misc/error_codes.h"
 
 
 namespace mango {
 	// instance is the address of the class instance to be hooked
 	void VmtHook::setup(const Process& process, const uintptr_t instance) {
+		if (this->is_valid())
+			this->release();
+
 		this->m_process = &process;
 
 		// void**
@@ -32,15 +36,14 @@ namespace mango {
 	// hook a function at the specified index (returns the original)
 	uintptr_t VmtHook::hook(const size_t index, const uintptr_t func) {
 		// if function already hooked
-		if (this->m_original_funcs.find(index) != this->m_original_funcs.end()) {
-			error() << "Virtual method at index " << index << " already hooked." << std::endl;
-			return 0;
-		}
+		if (this->m_original_funcs.find(index) != this->m_original_funcs.end())
+			throw FunctionAlreadyHooked();
 
 		const auto original = this->hook_internal(index, func);
 		if (original) 
 			return this->m_original_funcs[index] = original;
 
+		// not sure how this would ever be reached
 		return 0;
 	}
 
@@ -49,8 +52,6 @@ namespace mango {
 		if (const auto it = this->m_original_funcs.find(index); it != this->m_original_funcs.end()) {
 			this->hook_internal(index, it->second);
 			this->m_original_funcs.erase(it);
-		} else {
-			error() << "Virtual method at index " << index << " not hooked." << std::endl;
 		}
 	}
 

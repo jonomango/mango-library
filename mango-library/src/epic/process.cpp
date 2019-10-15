@@ -5,14 +5,18 @@
 #include <Psapi.h>
 
 #include "../../include/epic/shellcode.h"
-#include "../../include/utils/logger.h"
+#include "../../include/misc/logger.h"
+#include "../../include/misc/error_codes.h"
 
 
 namespace mango {
-	bool Process::setup(const uint32_t pid) {
+	void Process::setup(const uint32_t pid) {
 		// release, then setup
 		if (this->m_is_valid)
 			this->release();
+
+		// reset
+		this->m_is_valid = false;
 
 		// open a handle to the process
 		this->m_handle = OpenProcess(
@@ -25,11 +29,10 @@ namespace mango {
 		);
 
 		// whether we're valid or not depends entirely on OpenProcess()
-		this->m_is_valid = (this->m_handle != nullptr);
-		if (!this->is_valid()) {
-			error() << "Call to OpenProcess() failed" << std::endl;
-			return false;
-		}
+		if (this->m_handle == nullptr)
+			throw InvalidProcessHandle();
+
+		this->m_is_valid = true;
 
 		this->m_pid = pid;
 		this->m_is_self = (pid == GetCurrentProcessId());
@@ -40,10 +43,8 @@ namespace mango {
 
 		// update the internal list of modules
 		this->update_modules();
-
-		return true;
 	}
-	void Process::release() {
+	void Process::release() noexcept {
 		if (!this->m_is_valid)
 			return;
 
@@ -51,10 +52,14 @@ namespace mango {
 		this->m_is_valid = false;
 	}
 
+	// caching
 	bool Process::query_is_64bit() const {
 		// 32bit process on 64bit os
-		if (BOOL is_wow64 = false; !IsWow64Process(this->m_handle, &is_wow64) || is_wow64)
-			return false;
+		if (BOOL is_wow64 = false; IsWow64Process(this->m_handle, &is_wow64)) {
+			if (is_wow64)
+				return false;
+		} else
+			throw FailedToQueryProcessArchitecture();
 
 		SYSTEM_INFO system_info;
 		GetNativeSystemInfo(&system_info);
@@ -62,10 +67,8 @@ namespace mango {
 	}
 	std::string Process::query_name() const {
 		char buffer[1024];
-		if (DWORD size = sizeof(buffer); !QueryFullProcessImageName(this->m_handle, 0, buffer, &size)) {
-			error() << "Call to QueryFullProcessImageName() failed" << std::endl;
-			return "";
-		}
+		if (DWORD size = sizeof(buffer); !QueryFullProcessImageName(this->m_handle, 0, buffer, &size))
+			throw FailedToQueryProcessName();
 
 		std::string name(buffer);
 
@@ -76,6 +79,7 @@ namespace mango {
 
 		return name;
 	}
+
 	std::optional<PEB> Process::get_peb() const {
 		using NtQueryInformationProcessFn = NTSTATUS(__stdcall*)(HANDLE, PROCESSINFOCLASS, PVOID, ULONG, PULONG);
 		static const auto NtQueryInformationProcess = NtQueryInformationProcessFn(
@@ -83,10 +87,8 @@ namespace mango {
 
 		// get address of the peb structure
 		PROCESS_BASIC_INFORMATION process_info;
-		if (DWORD tmp = 0; NtQueryInformationProcess(this->m_handle, ProcessBasicInformation, &process_info, sizeof(process_info), &tmp)) {
-			error() << "Call to NtQueryInformationProcess() failed" << std::endl;
-			return {};
-		}
+		if (DWORD tmp = 0; NtQueryInformationProcess(this->m_handle, ProcessBasicInformation, &process_info, sizeof(process_info), &tmp))
+			throw FailedToQueryProcessInformation();
 
 		return this->read<PEB>(process_info.PebBaseAddress);
 	}
@@ -111,75 +113,71 @@ namespace mango {
 	}
 
 	void Process::read(const void* const address, void* const buffer, const size_t size) const {
-		if (this->is_self())
-			memcpy_s(buffer, size, address, size);
-		else
-			ReadProcessMemory(this->m_handle, address, buffer, size, nullptr);
+		if (this->is_self()) {
+			if (memcpy_s(buffer, size, address, size))
+				throw FailedToReadMemory();
+		}
+		else {
+			if (!ReadProcessMemory(this->m_handle, address, buffer, size, nullptr))
+				throw FailedToReadMemory();
+		}
 	}
 	void Process::write(void* const address, const void* const buffer, const size_t size) const {
-		if (this->is_self())
-			memcpy_s(address, size, buffer, size);
-		else
-			WriteProcessMemory(this->m_handle, address, buffer, size, nullptr);
+		if (this->is_self()) {
+			if (memcpy_s(address, size, buffer, size))
+				throw FailedToWriteMemory();
+		}
+		else {
+			if (!WriteProcessMemory(this->m_handle, address, buffer, size, nullptr))
+				throw FailedToWriteMemory();
+		}
 	}
 
 	void* Process::alloc_virt_mem(const size_t size, const uint32_t protection, const uint32_t type) const {
-		return VirtualAllocEx(this->m_handle, nullptr, size, type, protection);
+		if (const auto ret = VirtualAllocEx(this->m_handle, nullptr, size, type, protection); ret)
+			return ret;
+
+		throw FailedToAllocateVirtualMemory();
 	}
 	void Process::free_virt_mem(void* const address, const size_t size, const uint32_t type) const {
-		VirtualFreeEx(this->m_handle, address, size, type);
+		if (!VirtualFreeEx(this->m_handle, address, size, type))
+			throw FailedToFreeVirtualMemory();
 	}
 
 	uint32_t Process::get_mem_prot(const void* const address) const {
 		if (MEMORY_BASIC_INFORMATION mbi; VirtualQueryEx(this->m_handle, address, &mbi, sizeof(mbi)))
 			return mbi.Protect;
 
-		error() << "Call to VirtualQueryEx() failed" << std::endl;
-		return 0;
+		throw FailedToQueryMemoryProtection();
 	}
 	uint32_t Process::set_mem_prot(void* const address, const size_t size, const uint32_t protection) const {
 		if (DWORD old_protection = 0; VirtualProtectEx(this->m_handle, address, size, protection, &old_protection))
 			return old_protection;
 
-		error() << "Call to VirtualProtectEx() failed" << std::endl;
-		return 0;
+		throw FailedToSetMemoryProtection();
 	}
 
 	uintptr_t Process::get_proc_addr(const std::string& module_name, const std::string& func_name) const {
 		const auto mod = this->get_module(module_name);
-		if (!mod) {
-			error() << "Failed to get module - " << module_name << std::endl;
+		if (!mod)
 			return 0;
-		}
 
 		const auto exp = mod->get_export(func_name);
-		if (!exp) {
-			error() << "Failed to get export - " << module_name << ":" << func_name << std::endl;
+		if (!exp)
 			return 0;
-		}
 
 		return exp->m_address;
 	}
 	uintptr_t Process::get_proc_addr(const uintptr_t hmodule, const std::string& func_name) const {
 		const auto func_addr = this->get_proc_addr("kernel32.dll", "GetProcAddress");
-		if (!func_addr) {
-			error() << "Failed to get GetProcAddress address" << std::endl;
-			return 0;
-		}
+		if (!func_addr)
+			throw FailedToGetFunctionAddress();
 
 		// this will store func_name
 		const auto str_address = uintptr_t(this->alloc_virt_mem(func_name.size() + 1));
-		if (!str_address) {
-			error() << "Failed to allocate virtual memory" << std::endl;
-			return 0;
-		}
 
 		// for the return value of GetProcAddress
 		const auto ret_address = uintptr_t(this->alloc_virt_mem(this->get_ptr_size()));
-		if (!ret_address) {
-			error() << "Failed to allocate virtual memory" << std::endl;
-			return 0;
-		}
 
 		// copy the func_name
 		this->write(str_address, func_name.data(), func_name.size() + 1);
@@ -214,8 +212,8 @@ namespace mango {
 		}
 
 		// free memory
-		this->free_virt_mem(str_address, func_name.size() + 1);
-		this->free_virt_mem(ret_address, this->get_ptr_size());
+		this->free_virt_mem(str_address);
+		this->free_virt_mem(ret_address);
 
 		return ret_value;
 	}
@@ -223,7 +221,11 @@ namespace mango {
 	void Process::create_remote_thread(const void* const address) const {
 		const auto thread = CreateRemoteThread(this->m_handle, nullptr, 0,
 			LPTHREAD_START_ROUTINE(address), nullptr, 0, 0);
+		if (!thread)
+			throw FailedToCreateRemoteThread();
+
 		WaitForSingleObject(thread, INFINITE);
+		CloseHandle(thread);
 	}
 
 	void Process::update_modules() {
@@ -236,7 +238,7 @@ namespace mango {
 			// iterate over each module
 			for (size_t i = 0; i < size / sizeof(HMODULE); ++i) {
 				char buffer[256];
-				GetModuleBaseName(this->m_handle, modules[i], buffer, sizeof(buffer));
+				GetModuleBaseNameA(this->m_handle, modules[i], buffer, sizeof(buffer));
 				
 				std::string name(buffer);
 
@@ -253,9 +255,9 @@ namespace mango {
 			// change to lowercase
 			std::transform(name.begin(), name.end(), name.begin(), std::tolower);
 
+			// this process' module
 			this->m_process_module = this->m_modules.at(name);
-		} else {
-			error() << "Call to EnumProcessModules() failed" << std::endl;
-		}
+		} else
+			throw FailedToUpdateModules();
 	}
 } // namespace mango

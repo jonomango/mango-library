@@ -4,11 +4,12 @@
 #include <algorithm>
 
 #include "../../include/epic/process.h"
+#include "../../include/misc/error_codes.h"
 
 
 namespace mango {
 	template <bool is64bit>
-	bool setup_internal(PeHeader* pe_header, const Process& process, const uintptr_t address) {
+	void setup_internal(PeHeader* pe_header, const Process& process, const uintptr_t address) {
 		// architecture dependent types
 		using image_nt_headers = typename std::conditional<is64bit, IMAGE_NT_HEADERS64, IMAGE_NT_HEADERS32>::type;
 		using image_optional_header = typename std::conditional<is64bit, IMAGE_OPTIONAL_HEADER64, IMAGE_OPTIONAL_HEADER32>::type;
@@ -19,11 +20,11 @@ namespace mango {
 
 		// not a PE signature
 		if (nt_header.Signature != IMAGE_NT_SIGNATURE)
-			return false;
+			throw InvalidPEHeader();
 
 		// why not /shrug
 		if (nt_header.FileHeader.SizeOfOptionalHeader != sizeof(image_optional_header))
-			return false;
+			throw InvalidPEHeader();
 
 		// size of image
 		pe_header->m_image_size = nt_header.OptionalHeader.SizeOfImage;
@@ -89,17 +90,19 @@ namespace mango {
 				});
 			}
 		}
-
-		return true;
 	}
 
 	PeHeader::PeHeader(const Process& process, const void* const address) 
 		: PeHeader(process, uintptr_t(address)) {}
 	PeHeader::PeHeader(const Process& process, const uintptr_t address) {
 		this->m_image_base = address;
-		this->m_is_valid = process.is_64bit() ? 
+		this->m_is_valid = false;
+
+		process.is_64bit() ? 
 			setup_internal<true>(this, process, address) :
 			setup_internal<false>(this, process, address);
+
+		this->m_is_valid = true;
 	}
 
 	std::optional<PeHeader::PeEntry> PeHeader::get_export(const std::string func_name) const {

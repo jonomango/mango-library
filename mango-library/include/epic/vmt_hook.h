@@ -39,6 +39,12 @@ namespace mango {
 		// unhook a previously hooked function
 		void unhook(const size_t index);
 
+		// same as setup() return value
+		bool is_valid() const noexcept { return this->m_process != nullptr; }
+
+		// a more intuitive way to test for validity
+		explicit operator bool() const noexcept { return this->is_valid(); }
+
 		// prevent copying
 		VmtHook(const VmtHook&) = delete;
 		VmtHook& operator=(const VmtHook&) = delete;

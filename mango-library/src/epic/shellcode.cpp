@@ -12,7 +12,7 @@ namespace mango {
 		return address;
 	}
 	void Shellcode::free(const Process& process, void* const address) const {
-		process.free_virt_mem(address, this->m_data.size());
+		process.free_virt_mem(address);
 	}
 	void Shellcode::execute(const Process& process) const {
 		const auto address = this->allocate(process);

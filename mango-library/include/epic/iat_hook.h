@@ -23,9 +23,9 @@ namespace mango {
 		~IatHook() { this->release(); }
 
 		// all hooks will only affect the specified module
-		bool setup(const Process& process, const uintptr_t module_address);
-		bool setup(const Process& process, const void* const module_address) {
-			return this->setup(process, uintptr_t(module_address));
+		void setup(const Process& process, const uintptr_t module_address);
+		void setup(const Process& process, const void* const module_address) {
+			this->setup(process, uintptr_t(module_address));
 		}
 		
 		// unhooks everything
@@ -44,10 +44,10 @@ namespace mango {
 		void unhook(std::string module_name, const std::string& func_name);
 
 		// same as setup() return value
-		bool is_valid() const { return this->m_process != nullptr; }
+		bool is_valid() const noexcept { return this->m_process != nullptr; }
 
 		// a more intuitive way to test for validity
-		explicit operator bool() const { return this->is_valid(); }
+		explicit operator bool() const noexcept { return this->is_valid(); }
 
 		// prevent copying
 		IatHook(const IatHook&) = delete;
