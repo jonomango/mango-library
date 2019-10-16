@@ -5,18 +5,15 @@
 #include <Psapi.h>
 
 #include "../../include/epic/shellcode.h"
-#include "../../include/misc/logger.h"
+
+#include "../../include/misc/windows_defs.h"
 #include "../../include/misc/error_codes.h"
+#include "../../include/misc/logger.h"
 
 
 namespace mango {
 	void Process::setup(const uint32_t pid) {
-		// release, then setup
-		if (this->m_is_valid)
-			this->release();
-
-		// reset
-		this->m_is_valid = false;
+		this->release();
 
 		// open a handle to the process
 		this->m_handle = OpenProcess(
@@ -37,12 +34,18 @@ namespace mango {
 		this->m_pid = pid;
 		this->m_is_self = (pid == GetCurrentProcessId());
 
-		// cache some info
-		this->m_process_name = this->query_name();
-		this->m_is_64bit = this->query_is_64bit();
+		// so we don't leak a handle
+		try {
+			// cache some info
+			this->m_process_name = this->query_name();
+			this->m_is_64bit = this->query_is_64bit();
 
-		// update the internal list of modules
-		this->update_modules();
+			// update the internal list of modules
+			this->update_modules();
+		} catch (...) {
+			this->release();
+			throw;
+		}
 	}
 	void Process::release() noexcept {
 		if (!this->m_is_valid)
@@ -81,9 +84,8 @@ namespace mango {
 	}
 
 	std::optional<PEB> Process::get_peb() const {
-		using NtQueryInformationProcessFn = NTSTATUS(__stdcall*)(HANDLE, PROCESSINFOCLASS, PVOID, ULONG, PULONG);
 		static const auto NtQueryInformationProcess = NtQueryInformationProcessFn(
-			GetProcAddress(GetModuleHandleA("ntdll.dll"), "NtQueryInformationProcess"));
+			GetProcAddress(GetModuleHandle("ntdll.dll"), "NtQueryInformationProcess"));
 
 		// get address of the peb structure
 		PROCESS_BASIC_INFORMATION process_info;

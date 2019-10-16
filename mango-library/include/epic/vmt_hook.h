@@ -31,9 +31,9 @@ namespace mango {
 		uintptr_t hook(const size_t index, const uintptr_t func);
 
 		// wrapper
-		template <typename T = uintptr_t, typename C = uintptr_t>
-		T hook(const size_t index, C const func) {
-			return T(this->hook(index, uintptr_t(func)));
+		template <typename Ret = uintptr_t, typename Addr = uintptr_t>
+		Ret hook(const size_t index, Addr const func) {
+			return Ret(this->hook(index, uintptr_t(func)));
 		}
 
 		// unhook a previously hooked function

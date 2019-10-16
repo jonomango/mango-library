@@ -12,28 +12,28 @@
 
 namespace mango {
 	// vector class for math stuffz
-	template <typename T, const size_t C>
-	class Vector : public std::array<T, C> {
+	template <typename Ret, const size_t C>
+	class Vector : public std::array<Ret, C> {
 	public:
 		constexpr Vector() = default;
-		constexpr Vector(const T& value) { this->fill(value); }
+		constexpr Vector(const Ret& value) { this->fill(value); }
 
 		// Vector(...) or Vector({...}) or Vector v = {...}
 		template <typename... Args>
-		constexpr Vector(const Args&... args) : std::array<T, C>({ T(args)... }) {}
+		constexpr Vector(const Args&... args) : std::array<Ret, C>({ Ret(args)... }) {}
 
 		// constexpr accumulate function
 		template <typename Fn>
-		constexpr T accumulate(const size_t start, const size_t end, const T initial, const Fn op) const {
-			T value = initial;
+		constexpr Ret accumulate(const size_t start, const size_t end, const Ret initial, const Fn op) const {
+			Ret value = initial;
 			for (size_t i = start; i < end; ++i)
 				value = op(value, this->at(i));
 			return value;
 		}
 
 		// default op is std::plus
-		constexpr T accumulate(const size_t start, const size_t end, const T initial) const {
-			return this->accumulate(start, end, initial, std::plus<T>());
+		constexpr Ret accumulate(const size_t start, const size_t end, const Ret initial) const {
+			return this->accumulate(start, end, initial, std::plus<Ret>());
 		}
 
 		// get the length (or magnitude) of a vector
@@ -58,7 +58,7 @@ namespace mango {
 		// normalize a vector (in place)
 		void normalize() {
 			// only floats
-			static_assert(std::is_floating_point<T>::value, "Only floating-point vectors can be normalized");
+			static_assert(std::is_floating_point<Ret>::value, "Only floating-point vectors can be normalized");
 
 			const auto length = this->length();
 
@@ -66,8 +66,8 @@ namespace mango {
 			if (!length)
 				return;
 
-			const auto divide = [=](const T x) {
-				return T(x / length);
+			const auto divide = [=](const Ret x) {
+				return Ret(x / length);
 			};
 
 			// divide all elements by length
@@ -91,12 +91,12 @@ namespace mango {
 
 	private:
 		// only arithmetic values
-		static_assert(std::is_arithmetic<T>::value, "Only arithmetic types supported");
+		static_assert(std::is_arithmetic<Ret>::value, "Only arithmetic types supported");
 	};
 
 	// lets you do stuff like std::cout << vec;
-	template <typename T, const size_t C>
-	std::ostream& operator<<(std::ostream& stream, const Vector<T, C>& vec) {
+	template <typename Ret, const size_t C>
+	std::ostream& operator<<(std::ostream& stream, const Vector<Ret, C>& vec) {
 		stream << "[ " << +vec.front();
 		for (size_t i = 1; i < vec.size(); ++i)
 			stream << ", " << +vec[i];
@@ -105,8 +105,8 @@ namespace mango {
 	}
 
 	// lets you do stuff like std::wcout << vec;
-	template <typename T, const size_t C>
-	std::wostream& operator<<(std::wostream& stream, const Vector<T, C>& vec) {
+	template <typename Ret, const size_t C>
+	std::wostream& operator<<(std::wostream& stream, const Vector<Ret, C>& vec) {
 		stream << L"[ " << +vec.front();
 		for (size_t i = 1; i < vec.size(); ++i)
 			stream << L", " << +vec[i];

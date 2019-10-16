@@ -2,11 +2,13 @@
 
 #include "tests.h"
 
+#include <epic/process.h>
 
-// TODO:
-// * unit test utils
-// * better logger
-// *
+#include <misc/windows_defs.h>
+#include <misc/logger.h>
+
+#include <Windows.h>
+#include <winternl.h>
 
 
 int main() {

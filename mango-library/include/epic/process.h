@@ -56,10 +56,10 @@ namespace mango {
 		const ProcessModules& get_modules() const { return this->m_modules; }
 
 		// get a loaded module, case-insensitive (passing "" for name returns the current process module)
-		const Process::Module* get_module(std::string name) const;
+		const Process::Module* get_module(std::string name = "") const;
 
 		// get the base address of a module
-		uintptr_t get_module_addr(const std::string& module_name) const;
+		uintptr_t get_module_addr(const std::string& module_name = "") const;
 
 		// this uses the internal list of modules to find the function
 		// not as consistant as the implementation below but probably faster
@@ -68,6 +68,20 @@ namespace mango {
 		// this is just GetProcAddress() called in the remote process
 		uintptr_t get_proc_addr(const uintptr_t hmodule, const std::string& func_name) const;
 
+		// get a virtual method of an instance
+		template <typename Ret>
+		Ret get_vfunc(void* const instance, const size_t index) const {
+			if (this->is_64bit())
+				return Ret(this->read<uintptr_t>(this->read<uintptr_t>(instance) + sizeof(uintptr_t) * index));
+			return Ret(this->read<uint32_t>(this->read<uint32_t>(instance) + sizeof(uint32_t) * index));
+		}
+
+		// get a virtual method of an instance
+		template <typename Ret>
+		Ret get_vfunc(const uintptr_t instance, const size_t index) const {
+			return this->get_vfunc<Ret>(reinterpret_cast<void*>(instance), index);
+		}
+
 		// read from a memory address
 		void read(const void* const address, void* const buffer, const size_t size) const;
 		void read(const uintptr_t address, void* const buffer, const size_t size) const {
@@ -75,9 +89,9 @@ namespace mango {
 		}
 
 		// easy-to-use wrapper for read()
-		template <typename T, typename Addr> 
-		T read(Addr const address) const {
-			T buffer; this->read(address, &buffer, sizeof(buffer));
+		template <typename Ret, typename Addr> 
+		Ret read(Addr const address) const {
+			Ret buffer; this->read(address, &buffer, sizeof(buffer));
 			return buffer;
 		}
 
@@ -88,8 +102,8 @@ namespace mango {
 		}
 
 		// easy-to-use wrapper for write()
-		template <typename T, typename Addr> 
-		void write(Addr const address, const T& value) const {
+		template <typename Ret, typename Addr> 
+		void write(Addr const address, const Ret& value) const {
 			this->write(address, &value, sizeof(value));
 		}
 

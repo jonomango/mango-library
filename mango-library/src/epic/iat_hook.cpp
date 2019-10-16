@@ -10,8 +10,7 @@
 namespace mango {
 	// all hooks will only affect the specified module
 	void IatHook::setup(const Process& process, const uintptr_t module_address) {
-		if (this->is_valid())
-			this->release();
+		this->release();
 
 		// parse pe header
 		if (const auto pe_header = PeHeader(process, module_address); pe_header) {
@@ -48,7 +47,7 @@ namespace mango {
 
 		const auto original = this->hook_internal(module_name, func_name, func);
 		if (original)
-			return this->m_hooked_funcs[module_name][func_name] = original;
+			return (this->m_hooked_funcs[module_name][func_name] = original);
 
 		return 0;
 	}

@@ -10,67 +10,82 @@ namespace mango {
 	class UnitTest {
 	public:
 		UnitTest(std::string&& name) : m_name(name) {
-			mango::info() << "Starting unit test: " << this->m_name << std::endl;
+			mango::info() << "Starting unit tests: " << this->m_name << std::endl;
 		}
 		~UnitTest() {
-			mango::info() << "Ending unit test: " << this->m_name << std::endl;
+			if (this->m_failures > 0)
+				mango::error() << "Ending unit tests: " << this->m_name << " (" << 
+				this->m_successes << " successes, " << this->m_failures << " failures)" << std::endl;
+			else
+				mango::info() << "Ending unit tests: " << this->m_name << " (" << 
+				this->m_successes << " successes, " << this->m_failures << " failures)" << std::endl;
 		}
 
 		// custom check, return true/false in functor
-		template <typename Func>
-		void expect_custom(Func&& func) {
-			const auto prefix = this->generate_test_prefix();
-
-			if (func())
-				mango::info() << prefix << "passed" << std::endl;
+		template <typename Callable>
+		void expect_custom(Callable&& func) {
+			if (std::invoke(func))
+				this->success();
 			else
-				mango::error() << prefix << "failed" << std::endl;
+				this->failure();
 		}
 
 		// compare to an expected value
-		template <typename T, bool print_expected = true>
-		void expect_value(T&& value, T&& expected) {
-			const auto prefix = this->generate_test_prefix();
-
+		template <typename T, typename U, bool print_expected = true>
+		void expect_value(T&& value, U&& expected) {
 			if (value == expected)
-				mango::info() << prefix << "passed" << std::endl;
+				this->success();
 			else {
-				if constexpr (print_expected)
-					mango::error() << prefix << "failed, expected: " << expected << ", recieved: " << value << std::endl;
+				if constexpr (!print_expected)
+					this->failure();
 				else
-					mango::error() << prefix << "failed" << std::endl;
+					this->failure("recieved: ", value, ", expected: ", expected);
 			}
 		}
 
-		// check if true value (NOT the same as value == true)
+		// check if nonzero value
 		template <typename T>
-		void expect_true(T&& value) {
-			const auto prefix = this->generate_test_prefix();
-
+		void expect_nonzero(T&& value) {
 			if (value)
-				mango::info() << prefix << "passed" << std::endl;
+				this->success();
 			else
-				mango::error() << prefix << "failed, expected: true, recieved: false" << std::endl;
+				this->failure("recieved: false, expected: true");
 		}
 
-		// check if false value (NOT the same as value == false)
+		// check if false (0)
 		template <typename T>
-		void expect_false(T&& value) {
-			const auto prefix = this->generate_test_prefix();
-
+		void expect_zero(T&& value) {
 			if (!value)
-				mango::info() << prefix << "passed" << std::endl;
+				this->success();
 			else
-				mango::error() << prefix << "failed, expected: false, recieved: true" << std::endl;
+				this->failure("recieved: true, expected: false");
 		}
 
 	private:
-		std::string generate_test_prefix() {
-			return "Test #" + std::to_string(++this->m_test_num) + ": ";
+		void success() {
+			++this->m_successes;
+			++this->m_test_num;
+		}
+
+		template <typename ...Args>
+		void failure(Args&& ...args) {
+			++this->m_failures;
+
+			auto& stream = mango::error();
+
+			// log it
+			stream << "Test #" << ++this->m_test_num << ": failed";
+			if (sizeof...(args)) {
+				stream << ", ";
+				(stream << ... << std::forward<Args>(args));
+			}
+			stream << std::endl;
 		}
 
 	private:
 		std::string m_name;
-		size_t m_test_num = 0;
+		size_t m_test_num = 0,
+			m_successes = 0,
+			m_failures = 0;
 	};
 } // namespace mango

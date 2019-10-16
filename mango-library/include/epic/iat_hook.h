@@ -35,9 +35,9 @@ namespace mango {
 		uintptr_t hook(std::string module_name, const std::string& func_name, const uintptr_t func);
 
 		// wrapper
-		template <typename T = uintptr_t, typename C = uintptr_t>
-		T hook(const std::string& module_name, const std::string& func_name, C const func) {
-			return T(hook(module_name, func_name, uintptr_t(func)));
+		template <typename Ret = uintptr_t, typename Addr = uintptr_t>
+		Ret hook(const std::string& module_name, const std::string& func_name, Addr const func) {
+			return Ret(hook(module_name, func_name, uintptr_t(func)));
 		}
 
 		// unhook

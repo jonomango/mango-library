@@ -8,8 +8,7 @@
 namespace mango {
 	// instance is the address of the class instance to be hooked
 	void VmtHook::setup(const Process& process, const uintptr_t instance) {
-		if (this->is_valid())
-			this->release();
+		this->release();
 
 		this->m_process = &process;
 

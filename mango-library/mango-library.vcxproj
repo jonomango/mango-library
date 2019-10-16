@@ -30,6 +30,7 @@
     <ClInclude Include="include\misc\misc.h" />
     <ClInclude Include="include\misc\unit_test.h" />
     <ClInclude Include="include\misc\vector.h" />
+    <ClInclude Include="include\misc\windows_defs.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\epic\iat_hook.cpp" />

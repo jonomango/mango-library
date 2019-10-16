@@ -40,14 +40,15 @@ namespace mango {
 
 		// catch-all function
 		template <typename ...Args>
-		void push(Args&& ...args) {
+		Shellcode& push(Args&& ...args) {
 			// kinda a hack but whatever /shrug
 			const int _unused[] = { (this->push(std::forward<Args>(args)), 0)... };
+			return *this;
 		}
 
-		template <typename T>
-		void push(T&& value) {
-			using Type = std::remove_const_t<std::remove_reference_t<T>>;
+		template <typename Ret>
+		Shellcode& push(Ret&& value) {
+			using Type = std::remove_const_t<std::remove_reference_t<Ret>>;
 
 			// for integral types
 			if constexpr (std::is_integral_v<Type>) {
@@ -69,6 +70,8 @@ namespace mango {
 			} else { // other types
 				static_assert(false, "Only integral types or byte arrays allowed");
 			}
+
+			return *this;
 		}
 
 	private:

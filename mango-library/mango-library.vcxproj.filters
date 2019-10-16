@@ -74,5 +74,8 @@
     <ClInclude Include="include\misc\unit_test.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\misc\windows_defs.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
