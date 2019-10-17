@@ -19,6 +19,8 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\crypto\compile_time_key.h" />
+    <ClInclude Include="include\crypto\encrypted_string.h" />
     <ClInclude Include="include\epic\iat_hook.h" />
     <ClInclude Include="include\epic\vmt_hook.h" />
     <ClInclude Include="include\epic\pe_header.h" />

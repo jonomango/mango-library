@@ -77,5 +77,11 @@
     <ClInclude Include="include\misc\windows_defs.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\crypto\encrypted_string.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\crypto\compile_time_key.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
