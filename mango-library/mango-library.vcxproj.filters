@@ -83,5 +83,8 @@
     <ClInclude Include="include\crypto\compile_time_key.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\crypto\fnv_hash.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

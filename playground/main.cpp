@@ -3,17 +3,14 @@
 #include "tests.h"
 
 #include <epic/process.h>
-
-#include <misc/windows_defs.h>
 #include <misc/logger.h>
+#include <misc/windows_defs.h>
 #include <crypto/encrypted_string.h>
-
-#include <Windows.h>
-#include <winternl.h>
+#include <crypto/fnv_hash.h>
 
 
 int main() {
-	std::cout << encrypt_str("Hello world!") << std::endl;
+	encrypt_string("Hello world!");
 
 	getchar();
 	return 0;

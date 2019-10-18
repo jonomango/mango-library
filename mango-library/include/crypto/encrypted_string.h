@@ -4,38 +4,32 @@
 #include <array>
 #include <algorithm>
 
-#include "../misc/misc.h"
 #include "compile_time_key.h"
 
-#undef max
+// windows
+#undef min
 
 // kinda sucks that we have to use a macro but whatever
-#define encrypt_str(str)\
+#define encrypt_string(str)\
 ([]() {\
-	constexpr auto _encrypted = mango::EncryptedString(str);\
-	mango::force_compile_time<uint64_t, _encrypted.ensure_compile_time()>();\
+	constexpr auto _encrypted = mango::_EncryptedString(str);\
 	return _encrypted();\
 })()
 
 
-namespace mango {
+namespace mango { 
+	// compile time block based string encryption
 	template <size_t Size>
-	class EncryptedString {
+	class _EncryptedString {
 	public:
 		// encrypt the string in the constructor, at compile time (hopefully)
-		constexpr EncryptedString(const char(&str)[Size]) : m_key(compile_time_key(Size)) {
+		constexpr _EncryptedString(const char(&str)[Size]) : m_key(compile_time_key(Size)) {
 			for (size_t i = 0; i < Size; i += 8) {
 				const auto block = this->pack_block(str + i, Size - i);
 
 				// encrypt the block
 				this->m_data[i / 8] = this->enc_block(block, i);
 			}
-		}
-
-		// ensures that the string is created at compile time.
-		// usage: force_compile_time<uint64_t, e.ensure_compile_time()>()
-		constexpr uint64_t ensure_compile_time() const {
-			return this->m_data[(Size - 1) / 8];
 		}
 
 		// decrypt the string
