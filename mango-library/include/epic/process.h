@@ -9,6 +9,7 @@
 #include <winternl.h>
 
 #include "pe_header.h"
+#include "../misc/misc.h"
 
 
 namespace mango {
@@ -38,28 +39,28 @@ namespace mango {
 		bool is_64bit() const noexcept { return this->m_is_64bit; }
 
 		// get the size of a pointer
-		size_t get_ptr_size() const { return this->is_64bit() ? 8 : 4; }
+		size_t get_ptr_size() const noexcept { return this->is_64bit() ? 8 : 4; }
 
 		// get the underlying handle that is used for operations such as reading and writing
-		HANDLE get_handle() const { return this->m_handle; }
+		HANDLE get_handle() const noexcept { return this->m_handle; }
 
 		// the pid of the process (supplied in construction)
-		uint32_t get_pid() const { return this->m_pid; }
+		uint32_t get_pid() const noexcept { return this->m_pid; }
 
 		// get the name of the process
-		std::string get_name() const { return this->m_process_name; }
+		std::string get_name() const noexcept { return this->m_process_name; }
+
+		// get a list of loaded modules
+		const ProcessModules& get_modules() const noexcept { return this->m_modules; }
+
+		// get a loaded module, case-insensitive (passing "" for name returns the current process module)
+		const Process::Module* get_module(std::string name = "") const noexcept;
+
+		// get the base address of a module
+		uintptr_t get_module_addr(const std::string& module_name = "") const noexcept;
 
 		// get the PEB structure
 		std::optional<PEB> get_peb() const;
-
-		// get a list of loaded modules
-		const ProcessModules& get_modules() const { return this->m_modules; }
-
-		// get a loaded module, case-insensitive (passing "" for name returns the current process module)
-		const Process::Module* get_module(std::string name = "") const;
-
-		// get the base address of a module
-		uintptr_t get_module_addr(const std::string& module_name = "") const;
 
 		// this uses the internal list of modules to find the function
 		// not as consistant as the implementation below but probably faster
@@ -148,6 +149,9 @@ namespace mango {
 
 		// updates the internal list of modules
 		void update_modules();
+
+		// find a signature, IDA-style signature (01 ? ? 45 F9)
+		uintptr_t find_signature(const std::string& module_name, const std::string_view& pattern) const;
 
 		// a more intuitive way to test for validity
 		explicit operator bool() const { return this->is_valid(); }

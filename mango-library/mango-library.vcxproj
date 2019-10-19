@@ -23,9 +23,9 @@
     <ClInclude Include="include\crypto\encrypted_string.h" />
     <ClInclude Include="include\crypto\fnv_hash.h" />
     <ClInclude Include="include\epic\iat_hook.h" />
+    <ClInclude Include="include\epic\process.h" />
     <ClInclude Include="include\epic\vmt_hook.h" />
     <ClInclude Include="include\epic\pe_header.h" />
-    <ClInclude Include="include\epic\process.h" />
     <ClInclude Include="include\epic\shellcode.h" />
     <ClInclude Include="include\misc\color.h" />
     <ClInclude Include="include\misc\error_codes.h" />
