@@ -10,7 +10,7 @@ namespace mango {
 	class Process;
 
 	// copying is allowed
-	class PeHeader {
+	class LoadedModule {
 	public:
 		struct PeEntry {
 			uintptr_t m_address = 0,
@@ -23,12 +23,21 @@ namespace mango {
 			std::unordered_map<std::string /* func name */, PeEntry>>;
 
 		template <bool>
-		friend void setup_internal(PeHeader* pe_header, const Process& process, const uintptr_t address);
+		friend void setup_internal(LoadedModule* loaded_module, const Process& process, const uintptr_t address);
 
 	public:
-		PeHeader() = default; // should never use this but permits the use of some std containers
-		PeHeader(const Process& process, const void* const address);
-		PeHeader(const Process& process, const uintptr_t address);
+		LoadedModule() = default; // left in an invalid state
+		LoadedModule(const Process& process, const void* const address) { this->setup(process, address); }
+		LoadedModule(const Process& process, const uintptr_t address) { this->setup(process, address); }
+
+		// setup (parse the pe header mostly)
+		void setup(const Process& process, const uintptr_t address);
+		void setup(const Process& process, const void* const address) {
+			this->setup(process, uintptr_t(address));
+		}
+
+		// check if successfully parsed the pe header
+		bool is_valid() const noexcept { return this->m_is_valid; }
 
 		// image base (passed in constructor)
 		uintptr_t get_image_base() const { return this->m_image_base; }
@@ -43,9 +52,6 @@ namespace mango {
 		// get imported functions
 		const ImportedFuncs& get_imports() const { return this->m_imported_funcs; }
 		std::optional<PeEntry> get_import(const std::string module_name, const std::string func_name) const;
-
-		// check if successfully parsed the pe header
-		bool is_valid() const noexcept { return this->m_is_valid; }
 
 		// a more intuitive way to test for validity
 		explicit operator bool() const noexcept { return this->is_valid(); }

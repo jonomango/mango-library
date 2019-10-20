@@ -3,6 +3,8 @@
 #include "tests.h"
 
 #include <epic/process.h>
+#include <epic/pattern_scanner.h>
+#include <misc/vector.h>
 #include <misc/logger.h>
 #include <misc/error_codes.h>
 #include <misc/windows_defs.h>
@@ -14,10 +16,17 @@
 
 
 int main() {
+	run_unit_tests();
+
 	try {
-		mango::Process process(21072);
-		std::cout << std::hex << process.find_signature("", "40 53 48 83 EC 20 48 8B 01") << std::endl;
-	} catch (mango::MangoError & e) {
+		mango::Process process(GetCurrentProcessId());
+		mango::info() << process.get_name() << std::endl;
+
+		// print all exported functions in kernel32.dll
+		for (const auto& [module_name, entry] : process.get_module("kernel32.dll")->get_exports()) {
+			mango::info() << module_name << " " << std::hex << entry.m_address << std::endl;
+		}
+	} catch (mango::MangoError& e) {
 		mango::error() << e.what() << std::endl;
 	}
 

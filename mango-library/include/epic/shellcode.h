@@ -18,36 +18,36 @@ namespace mango {
 
 		// same as Shellcode s(); s.push(args);
 		template <typename ...Args>
-		Shellcode(Args&& ...args) { this->push(std::forward<Args>(args)...);  }
+		Shellcode(Args&& ...args) noexcept { this->push(std::forward<Args>(args)...);  }
 
 		// allocate memory in the target process and write shellcode to the address
-		void* allocate(const Process& process) const;
+		uintptr_t allocate(const Process& process) const;
 
 		// free shellcode that was previously allocated with Shellcode::allocate()
-		// NOTE: do not modify shellcode between allocate() and free() calls
-		void free(const Process& process, void* const address) const;
+		// NOTE: do not modify (.push or .clear) shellcode between allocate() and free() calls
+		void free(const Process& process, const uintptr_t address) const;
 
-		// run the shellcode in the process, basically just calls
+		// execute the shellcode in the process, basically just calls
 		// Shellcode::allocate(), Process::create_remote_thread(), Shellcode::free()
 		void execute(const Process& process) const;
 
 		// reset
-		void clear() { this->m_data.clear(); }
+		void clear() noexcept { this->m_data.clear(); }
 
 		// get the raw bytes
-		const ShellcodeData& get_data() const { return this->m_data; }
-		ShellcodeData& get_data() { return this->m_data; }
+		const ShellcodeData& get_data() const noexcept { return this->m_data; }
+		ShellcodeData& get_data() noexcept { return this->m_data; }
 
 		// catch-all function
 		template <typename ...Args>
-		Shellcode& push(Args&& ...args) {
+		Shellcode& push(Args&& ...args) noexcept {
 			// kinda a hack but whatever /shrug
 			const int _unused[] = { (this->push(std::forward<Args>(args)), 0)... };
 			return *this;
 		}
 
 		template <typename Ret>
-		Shellcode& push(Ret&& value) {
+		Shellcode& push(Ret&& value) noexcept {
 			using Type = std::remove_const_t<std::remove_reference_t<Ret>>;
 
 			// for integral types
@@ -71,6 +71,7 @@ namespace mango {
 				static_assert(false, "Only integral types or byte arrays allowed");
 			}
 
+			// for chaining
 			return *this;
 		}
 

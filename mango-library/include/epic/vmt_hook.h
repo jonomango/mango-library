@@ -15,7 +15,6 @@ namespace mango {
 		VmtHook() = default;
 		VmtHook(const Process& process, const uintptr_t instance) { this->setup(process, instance); }
 		VmtHook(const Process& process, const void* const instance) { this->setup(process, instance); }
-
 		~VmtHook() { this->release(); }
 
 		// instance is the address of the class instance to be hooked

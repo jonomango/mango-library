@@ -12,33 +12,39 @@
 
 namespace mango {
 	// vector class for math stuffz
-	template <typename Ret, const size_t C>
-	class Vector : public std::array<Ret, C> {
+	template <typename T, const size_t C>
+	class Vector : public std::array<T, C> {
 	public:
-		constexpr Vector() = default;
-		constexpr Vector(const Ret& value) { this->fill(value); }
+		// std::array::fill() is not constexpr btw
+		constexpr explicit Vector(const T& scalar = T(0)) noexcept { 
+			for (size_t i = 0; i < C; ++i)
+				this->operator[](i) = scalar;
+		}
 
 		// Vector(...) or Vector({...}) or Vector v = {...}
 		template <typename... Args>
-		constexpr Vector(const Args&... args) : std::array<Ret, C>({ Ret(args)... }) {}
+		constexpr Vector(const Args&... args) noexcept : std::array<T, C>({ T(args)... }) {
+			static_assert(sizeof...(Args) == C, "Incorrect amount of arguments provided");
+			static_assert((true && ... && std::is_same_v<Args, T>), "Incorrect argument types provided");
+		}
 
 		// constexpr accumulate function
 		template <typename Fn>
-		constexpr Ret accumulate(const size_t start, const size_t end, const Ret initial, const Fn op) const {
-			Ret value = initial;
+		constexpr T accumulate(const size_t start, const size_t end, const T initial, const Fn op) const noexcept {
+			T value = initial;
 			for (size_t i = start; i < end; ++i)
 				value = op(value, this->at(i));
 			return value;
 		}
 
 		// default op is std::plus
-		constexpr Ret accumulate(const size_t start, const size_t end, const Ret initial) const {
-			return this->accumulate(start, end, initial, std::plus<Ret>());
+		constexpr T accumulate(const size_t start, const size_t end, const T initial = T(0)) const noexcept {
+			return this->accumulate(start, end, initial, std::plus<T>());
 		}
 
 		// get the length (or magnitude) of a vector
 		template <const size_t D = C>
-		double length() const {
+		double length() const noexcept {
 			// D must be in the range of (0, C]
 			static_assert(D <= C, "D cannot be higher than C");
 			static_assert(D > 0, "D must be greater than 0");
@@ -56,9 +62,9 @@ namespace mango {
 		}
 
 		// normalize a vector (in place)
-		void normalize() {
+		void normalize() noexcept {
 			// only floats
-			static_assert(std::is_floating_point<Ret>::value, "Only floating-point vectors can be normalized");
+			static_assert(std::is_floating_point<T>::value, "Only floating-point vectors can be normalized");
 
 			const auto length = this->length();
 
@@ -66,8 +72,8 @@ namespace mango {
 			if (!length)
 				return;
 
-			const auto divide = [=](const Ret x) {
-				return Ret(x / length);
+			const auto divide = [=](const T x) {
+				return T(x / length);
 			};
 
 			// divide all elements by length
@@ -75,13 +81,13 @@ namespace mango {
 		}
 
 		// find the mean (obviously)
-		constexpr double mean() const {
+		constexpr double mean() const noexcept {
 			return this->accumulate(0, this->size(), 0.0) / double(C);
 		}
 
 		// find the median (obviously)
 		// also it returns double instead of T due to cases where C is even
-		constexpr double median() const {
+		constexpr double median() const noexcept {
 			const auto center = C / 2 - 1;
 			if (C % 2 == 0) // even
 				return (double(this->at(center)) + double(this->at(center + 1))) / 2.0;
@@ -91,12 +97,12 @@ namespace mango {
 
 	private:
 		// only arithmetic values
-		static_assert(std::is_arithmetic<Ret>::value, "Only arithmetic types supported");
+		static_assert(std::is_arithmetic<T>::value, "Only arithmetic types supported");
 	};
 
 	// lets you do stuff like std::cout << vec;
-	template <typename Ret, const size_t C>
-	std::ostream& operator<<(std::ostream& stream, const Vector<Ret, C>& vec) {
+	template <typename T, const size_t C>
+	std::ostream& operator<<(std::ostream& stream, const Vector<T, C>& vec) {
 		stream << "[ " << +vec.front();
 		for (size_t i = 1; i < vec.size(); ++i)
 			stream << ", " << +vec[i];
@@ -105,8 +111,8 @@ namespace mango {
 	}
 
 	// lets you do stuff like std::wcout << vec;
-	template <typename Ret, const size_t C>
-	std::wostream& operator<<(std::wostream& stream, const Vector<Ret, C>& vec) {
+	template <typename T, const size_t C>
+	std::wostream& operator<<(std::wostream& stream, const Vector<T, C>& vec) {
 		stream << L"[ " << +vec.front();
 		for (size_t i = 1; i < vec.size(); ++i)
 			stream << L", " << +vec[i];

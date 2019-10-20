@@ -13,7 +13,7 @@ namespace mango {
 		this->release();
 
 		// parse pe header
-		if (const auto pe_header = PeHeader(process, module_address); pe_header) {
+		if (const auto pe_header = LoadedModule(process, module_address); pe_header) {
 			this->m_iat = pe_header.get_imports();
 			this->m_process = &process;
 		}
@@ -39,16 +39,15 @@ namespace mango {
 		std::transform(module_name.begin(), module_name.end(), module_name.begin(), std::tolower);
 
 		// make sure not hooked already
-		if (const auto & functions = this->m_hooked_funcs.find(module_name); functions != this->m_hooked_funcs.end()) {
-			const auto& it = functions->second.find(func_name);
-			if (it != functions->second.end())
+		if (const auto& functions = this->m_hooked_funcs.find(module_name); functions != this->m_hooked_funcs.end()) {
+			if (functions->second.find(func_name) != functions->second.end())
 				throw FunctionAlreadyHooked();
 		}
 
+		// hook
 		const auto original = this->hook_internal(module_name, func_name, func);
 		if (original)
 			return (this->m_hooked_funcs[module_name][func_name] = original);
-
 		return 0;
 	}
 
@@ -70,7 +69,7 @@ namespace mango {
 			functions->second.erase(func);
 	}
 
-	// unhook also uses this
+	// this does all the heavy lifting
 	uintptr_t IatHook::hook_internal(const std::string& module_name, const std::string& func_name, const uintptr_t func) {
 		const auto it = this->m_iat.find(module_name);
 		if (it == this->m_iat.end())

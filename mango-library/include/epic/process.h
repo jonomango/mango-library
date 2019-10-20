@@ -1,26 +1,26 @@
 #pragma once
 
 #include <stdint.h>
-#include <optional>
 #include <string>
 #include <unordered_map>
 
 #include <Windows.h>
 #include <winternl.h>
 
-#include "pe_header.h"
+#include "loaded_module.h"
 #include "../misc/misc.h"
 
 
 namespace mango {
 	class Process {
 	public:
-		using Module = PeHeader; // might change this later if too much overhead
-		using ProcessModules = std::unordered_map<std::string, Module>;
+		using ProcessModules = std::unordered_map<std::string, LoadedModule>;
 
 	public:
 		Process() = default; // left in an invalid state
-		Process(const uint32_t pid) { this->setup(pid); }
+		explicit Process(const uint32_t pid) { this->setup(pid); }
+
+		// just calls release
 		~Process() noexcept { this->release(); }
 
 		// initialization
@@ -41,7 +41,7 @@ namespace mango {
 		// get the size of a pointer
 		size_t get_ptr_size() const noexcept { return this->is_64bit() ? 8 : 4; }
 
-		// get the underlying handle that is used for operations such as reading and writing
+		// get the underlying handle that the class wraps around
 		HANDLE get_handle() const noexcept { return this->m_handle; }
 
 		// the pid of the process (supplied in construction)
@@ -54,33 +54,27 @@ namespace mango {
 		const ProcessModules& get_modules() const noexcept { return this->m_modules; }
 
 		// get a loaded module, case-insensitive (passing "" for name returns the current process module)
-		const Process::Module* get_module(std::string name = "") const noexcept;
+		const LoadedModule* get_module(std::string name = "") const noexcept;
 
 		// get the base address of a module
 		uintptr_t get_module_addr(const std::string& module_name = "") const noexcept;
 
-		// get the PEB structure
-		std::optional<PEB> get_peb() const;
-
-		// this uses the internal list of modules to find the function
+		// this uses the internal list of modules to find the function address
 		// not as consistant as the implementation below but probably faster
-		uintptr_t get_proc_addr(const std::string& module_name, const std::string& func_name) const;
+		uintptr_t get_proc_addr(const std::string& module_name, const std::string& func_name) const noexcept;
 
-		// this is just GetProcAddress() called in the remote process
+		// uses shellcode to call GetProcAddress() in the remote process
 		uintptr_t get_proc_addr(const uintptr_t hmodule, const std::string& func_name) const;
 
-		// get a virtual method of an instance
-		template <typename Ret>
-		Ret get_vfunc(void* const instance, const size_t index) const {
+		// get the PEB structure
+		PEB get_peb() const;
+
+		// get the address of a virtual method in an instance
+		template <typename Ret, typename Addr>
+		Ret get_vfunc(const Addr instance, const size_t index) const {
 			if (this->is_64bit())
 				return Ret(this->read<uintptr_t>(this->read<uintptr_t>(instance) + sizeof(uintptr_t) * index));
 			return Ret(this->read<uint32_t>(this->read<uint32_t>(instance) + sizeof(uint32_t) * index));
-		}
-
-		// get a virtual method of an instance
-		template <typename Ret>
-		Ret get_vfunc(const uintptr_t instance, const size_t index) const {
-			return this->get_vfunc<Ret>(reinterpret_cast<void*>(instance), index);
 		}
 
 		// read from a memory address
@@ -89,7 +83,7 @@ namespace mango {
 			this->read(reinterpret_cast<void*>(address), buffer, size);
 		}
 
-		// easy-to-use wrapper for read()
+		// easy to use wrapper for read()
 		template <typename Ret, typename Addr> 
 		Ret read(Addr const address) const {
 			Ret buffer; this->read(address, &buffer, sizeof(buffer));
@@ -102,22 +96,20 @@ namespace mango {
 			this->write(reinterpret_cast<void*>(address), buffer, size);
 		}
 
-		// easy-to-use wrapper for write()
+		// easy to use wrapper for write()
 		template <typename Ret, typename Addr> 
 		void write(Addr const address, const Ret& value) const {
 			this->write(address, &value, sizeof(value));
 		}
 
 		// allocate virtual memory in the process (wrapper for VirtualAllocEx)
-		void* alloc_virt_mem(const size_t size,
+		uintptr_t alloc_virt_mem(const size_t size,
 			const uint32_t protection = PAGE_READWRITE,
 			const uint32_t type = MEM_COMMIT | MEM_RESERVE) const;
 
 		// free virtual memory in the process (wrapper for VirtualFreeEx)
-		void free_virt_mem(void* const address, const size_t size = 0, 
-			const uint32_t type = MEM_RELEASE) const;
-		void free_virt_mem(const uintptr_t address, const size_t size = 0,
-			const uint32_t type = MEM_RELEASE) const {
+		void free_virt_mem(void* const address, const size_t size = 0, const uint32_t type = MEM_RELEASE) const;
+		void free_virt_mem(const uintptr_t address, const size_t size = 0, const uint32_t type = MEM_RELEASE) const {
 			this->free_virt_mem(reinterpret_cast<void*>(address), size, type);
 		}
 
@@ -133,25 +125,14 @@ namespace mango {
 			return this->set_mem_prot(reinterpret_cast<void*>(address), size, protection);
 		}
 
-		// wrapper over CreateRemoteThread
+		// wrapper over CreateRemoteThread (will wait infinitely for the thread to finish)
 		void create_remote_thread(const void* const address) const;
 		void create_remote_thread(const uintptr_t address) const { 
 			this->create_remote_thread(reinterpret_cast<void*>(address)); 
 		}
 
-		// inject a dll into another process (using LoadLibrary)
-		uintptr_t load_library(const std::string& dll_path) const;
-
-		// manual map a dll into another process
-		// SEVERE BUGS if module is already mapped into the process via LoadLibrary
-		uintptr_t manual_map(const std::string& dll_path) const;
-		uintptr_t manual_map(const uint8_t* const image) const;
-
 		// updates the internal list of modules
 		void update_modules();
-
-		// find a signature, IDA-style signature (01 ? ? 45 F9)
-		uintptr_t find_signature(const std::string& module_name, const std::string_view& pattern) const;
 
 		// a more intuitive way to test for validity
 		explicit operator bool() const { return this->is_valid(); }
@@ -173,7 +154,7 @@ namespace mango {
 			m_is_64bit = false;
 		HANDLE m_handle = nullptr;
 		uint32_t m_pid = 0;
-		Module m_process_module;
+		LoadedModule m_process_module;
 		ProcessModules m_modules;
 		std::string m_process_name;
 	};

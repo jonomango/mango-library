@@ -1,4 +1,4 @@
-#include "../../include/epic/pe_header.h"
+#include "../../include/epic/loaded_module.h"
 
 #include <iostream>
 #include <algorithm>
@@ -9,7 +9,7 @@
 
 namespace mango {
 	template <bool is64bit>
-	void setup_internal(PeHeader* pe_header, const Process& process, const uintptr_t address) {
+	void setup_internal(LoadedModule* loaded_module, const Process& process, const uintptr_t address) {
 		// architecture dependent types
 		using image_nt_headers = typename std::conditional<is64bit, IMAGE_NT_HEADERS64, IMAGE_NT_HEADERS32>::type;
 		using image_optional_header = typename std::conditional<is64bit, IMAGE_OPTIONAL_HEADER64, IMAGE_OPTIONAL_HEADER32>::type;
@@ -27,7 +27,7 @@ namespace mango {
 			throw InvalidPEHeader();
 
 		// size of image
-		pe_header->m_image_size = nt_header.OptionalHeader.SizeOfImage;
+		loaded_module->m_image_size = nt_header.OptionalHeader.SizeOfImage;
 
 		// export data directory
 		const auto ex_dir = process.read<IMAGE_EXPORT_DIRECTORY>(address +
@@ -51,7 +51,7 @@ namespace mango {
 			// address of the function
 			const auto addr = address + process.read<uint32_t>(table_addr);
 
-			pe_header->m_exported_funcs[name] = PeHeader::PeEntry({ addr, table_addr });
+			loaded_module->m_exported_funcs[name] = LoadedModule::PeEntry({ addr, table_addr });
 		}
 
 		const uint32_t iat_rva = nt_header.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
@@ -61,7 +61,7 @@ namespace mango {
 		// iterate through each function in the import address table
 		for (uint32_t i = 0; i < num_entries; i++) {
 			const auto iat_entry = process.read<IMAGE_IMPORT_DESCRIPTOR>(address + iat_rva + (i * sizeof(IMAGE_IMPORT_DESCRIPTOR)));
-			if (iat_entry.Name >= pe_header->m_image_size || iat_entry.OriginalFirstThunk >= pe_header->m_image_size)
+			if (iat_entry.Name >= loaded_module->m_image_size || iat_entry.OriginalFirstThunk >= loaded_module->m_image_size)
 				break;
 
 			// ex. KERNEL32.DLL
@@ -75,7 +75,7 @@ namespace mango {
 			// iterate through each thunk
 			for (uint32_t j = 0; true; j += sizeof(image_thunk_data)) {
 				const auto orig_thunk = process.read<image_thunk_data>(address + iat_entry.OriginalFirstThunk + j);
-				if (orig_thunk.u1.AddressOfData >= pe_header->m_image_size)
+				if (orig_thunk.u1.AddressOfData >= loaded_module->m_image_size)
 					break;
 
 				// orig_thunk.u1.AddressOfData + 2 == IMAGE_IMPORT_BY_NAME::Name
@@ -84,7 +84,7 @@ namespace mango {
 				func_name[255] = '\0';
 
 				const auto thunk = process.read<image_thunk_data>(address + iat_entry.FirstThunk + j);
-				pe_header->m_imported_funcs[module_name][func_name] = PeHeader::PeEntry({ 
+				loaded_module->m_imported_funcs[module_name][func_name] = LoadedModule::PeEntry({
 					uintptr_t(thunk.u1.Function), 
 					address + iat_entry.FirstThunk + j 
 				});
@@ -92,26 +92,37 @@ namespace mango {
 		}
 	}
 
-	PeHeader::PeHeader(const Process& process, const void* const address) 
-		: PeHeader(process, uintptr_t(address)) {}
-	PeHeader::PeHeader(const Process& process, const uintptr_t address) {
+	// setup (parse the pe header mostly)
+	void LoadedModule::setup(const Process& process, const uintptr_t address) {
 		this->m_image_base = address;
-		this->m_is_valid = false;
-
-		process.is_64bit() ? 
-			setup_internal<true>(this, process, address) :
-			setup_internal<false>(this, process, address);
-
 		this->m_is_valid = true;
+
+		// reset
+		m_exported_funcs.clear();
+		m_imported_funcs.clear();
+
+		// setup
+		try {
+			if (process.is_64bit())
+				setup_internal<true>(this, process, address);
+			else
+				setup_internal<false>(this, process, address);
+		} catch (...) {
+			this->m_is_valid = false;
+			throw;
+		}
 	}
 
-	std::optional<PeHeader::PeEntry> PeHeader::get_export(const std::string func_name) const {
+	// get exported functions
+	std::optional<LoadedModule::PeEntry> LoadedModule::get_export(const std::string func_name) const {
 		if (const auto it = this->m_exported_funcs.find(func_name); it != m_exported_funcs.end())
 			return it->second;
 
 		return {};
 	}
-	std::optional<PeHeader::PeEntry> PeHeader::get_import(const std::string module_name, const std::string func_name) const {
+
+	// get imported functions
+	std::optional<LoadedModule::PeEntry> LoadedModule::get_import(const std::string module_name, const std::string func_name) const {
 		if (const auto it = m_imported_funcs.find(module_name); it != m_imported_funcs.end())
 			if (const auto it2 = it->second.find(func_name); it2 != it->second.end())
 				return it2->second;

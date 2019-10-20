@@ -23,9 +23,11 @@
     <ClInclude Include="include\crypto\encrypted_string.h" />
     <ClInclude Include="include\crypto\fnv_hash.h" />
     <ClInclude Include="include\epic\iat_hook.h" />
+    <ClInclude Include="include\epic\loader.h" />
+    <ClInclude Include="include\epic\pattern_scanner.h" />
     <ClInclude Include="include\epic\process.h" />
     <ClInclude Include="include\epic\vmt_hook.h" />
-    <ClInclude Include="include\epic\pe_header.h" />
+    <ClInclude Include="include\epic\loaded_module.h" />
     <ClInclude Include="include\epic\shellcode.h" />
     <ClInclude Include="include\misc\color.h" />
     <ClInclude Include="include\misc\error_codes.h" />
@@ -37,9 +39,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\epic\iat_hook.cpp" />
+    <ClCompile Include="src\epic\pattern_scanner.cpp" />
     <ClCompile Include="src\epic\vmt_hook.cpp" />
-    <ClCompile Include="src\epic\inject.cpp" />
-    <ClCompile Include="src\epic\pe_header.cpp" />
+    <ClCompile Include="src\epic\loader.cpp" />
+    <ClCompile Include="src\epic\loaded_module.cpp" />
     <ClCompile Include="src\epic\process.cpp" />
     <ClCompile Include="src\epic\shellcode.cpp" />
     <ClCompile Include="src\misc\logger.cpp" />

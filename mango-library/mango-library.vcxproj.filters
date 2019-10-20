@@ -18,13 +18,7 @@
     <ClCompile Include="src\epic\process.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\epic\pe_header.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\epic\shellcode.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\epic\inject.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\epic\vmt_hook.cpp">
@@ -39,11 +33,17 @@
     <ClCompile Include="src\misc\misc.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\epic\pattern_scanner.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\epic\loader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\epic\loaded_module.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\epic\pe_header.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="include\epic\shellcode.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -84,6 +84,15 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\epic\process.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\epic\pattern_scanner.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\epic\loader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\epic\loaded_module.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

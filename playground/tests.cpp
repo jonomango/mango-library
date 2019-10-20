@@ -4,6 +4,7 @@
 #include <epic/vmt_hook.h>
 #include <epic/iat_hook.h>
 #include <epic/shellcode.h>
+#include <epic/loader.h>
 
 #include <misc/misc.h>
 #include <misc/unit_test.h>
@@ -45,7 +46,7 @@ void test_process(mango::Process& process) {
 	unit_test.expect_value(process.get_module_addr("kernel32.dll"), uintptr_t(GetModuleHandle("kernel32.dll")));
 
 	// LoadLibrary
-	const auto kernel32dll = process.load_library("kernel32.dll");
+	const auto kernel32dll = load_library(process, "kernel32.dll");
 	unit_test.expect_value(kernel32dll, uintptr_t(LoadLibraryA("kernel32.dll")));
 
 	// GetProcAddress
@@ -53,7 +54,7 @@ void test_process(mango::Process& process) {
 	unit_test.expect_value(process.get_proc_addr("kernel32.dll", "IsDebuggerPresent"), uintptr_t(IsDebuggerPresent));
 
 	// allocating virtual memory
-	const auto example_value = static_cast<int*>(process.alloc_virt_mem(4, PAGE_READWRITE));
+	const auto example_value = reinterpret_cast<int*>(process.alloc_virt_mem(4, PAGE_READWRITE));
 	unit_test.expect_nonzero(example_value);
 
 	// reading memory
@@ -87,6 +88,9 @@ void test_process(mango::Process& process) {
 
 		return did_thread_run;
 	});
+
+	// reading the peb structure
+	unit_test.expect_value(IsDebuggerPresent(), process.get_peb().BeingDebugged);
 }
 
 void test_vmt_hooks(mango::Process& process) {

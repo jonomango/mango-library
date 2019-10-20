@@ -12,6 +12,7 @@
 
 
 namespace mango {
+	// initialization
 	void Process::setup(const uint32_t pid) {
 		this->release();
 
@@ -47,6 +48,8 @@ namespace mango {
 			throw;
 		}
 	}
+
+	// clean up
 	void Process::release() noexcept {
 		if (!this->m_is_valid)
 			return;
@@ -55,47 +58,9 @@ namespace mango {
 		this->m_is_valid = false;
 	}
 
-	// caching
-	bool Process::query_is_64bit() const {
-		// 32bit process on 64bit os
-		if (BOOL is_wow64 = false; IsWow64Process(this->m_handle, &is_wow64)) {
-			if (is_wow64)
-				return false;
-		} else
-			throw FailedToQueryProcessArchitecture();
-
-		SYSTEM_INFO system_info;
-		GetNativeSystemInfo(&system_info);
-		return system_info.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_AMD64;
-	}
-	std::string Process::query_name() const {
-		char buffer[1024];
-		if (DWORD size = sizeof(buffer); !QueryFullProcessImageName(this->m_handle, 0, buffer, &size))
-			throw FailedToQueryProcessName();
-
-		std::string name(buffer);
-
-		// erase everything before the last back slash
-		const size_t pos = name.find_last_of('\\');
-		if (pos != std::string::npos)
-			name = name.substr(pos + 1);
-
-		return name;
-	}
-
-	std::optional<PEB> Process::get_peb() const {
-		static const auto NtQueryInformationProcess = NtQueryInformationProcessFn(
-			GetProcAddress(GetModuleHandle("ntdll.dll"), "NtQueryInformationProcess"));
-
-		// get address of the peb structure
-		PROCESS_BASIC_INFORMATION process_info;
-		if (DWORD tmp = 0; NtQueryInformationProcess(this->m_handle, ProcessBasicInformation, &process_info, sizeof(process_info), &tmp))
-			throw FailedToQueryProcessInformation();
-
-		return this->read<PEB>(process_info.PebBaseAddress);
-	}
-	const Process::Module* Process::get_module(std::string name) const noexcept {
-		// special case (similar to GetModuleHandle(nullptr))
+	// get a loaded module, case-insensitive (passing "" for name returns the current process module)
+	const LoadedModule* Process::get_module(std::string name) const noexcept {
+		// return own module
 		if (name.empty())
 			return &this->m_process_module;
 
@@ -108,58 +73,17 @@ namespace mango {
 
 		return nullptr;
 	}
+
+	// get the base address of a module
 	uintptr_t Process::get_module_addr(const std::string& module_name) const noexcept {
 		if (const auto mod = this->get_module(module_name); mod)
 			return mod->get_image_base();
 		return 0;
 	}
 
-	void Process::read(const void* const address, void* const buffer, const size_t size) const {
-		if (this->is_self()) {
-			if (memcpy_s(buffer, size, address, size))
-				throw FailedToReadMemory();
-		}
-		else {
-			if (!ReadProcessMemory(this->m_handle, address, buffer, size, nullptr))
-				throw FailedToReadMemory();
-		}
-	}
-	void Process::write(void* const address, const void* const buffer, const size_t size) const {
-		if (this->is_self()) {
-			if (memcpy_s(address, size, buffer, size))
-				throw FailedToWriteMemory();
-		}
-		else {
-			if (!WriteProcessMemory(this->m_handle, address, buffer, size, nullptr))
-				throw FailedToWriteMemory();
-		}
-	}
-
-	void* Process::alloc_virt_mem(const size_t size, const uint32_t protection, const uint32_t type) const {
-		if (const auto ret = VirtualAllocEx(this->m_handle, nullptr, size, type, protection); ret)
-			return ret;
-
-		throw FailedToAllocateVirtualMemory();
-	}
-	void Process::free_virt_mem(void* const address, const size_t size, const uint32_t type) const {
-		if (!VirtualFreeEx(this->m_handle, address, size, type))
-			throw FailedToFreeVirtualMemory();
-	}
-
-	uint32_t Process::get_mem_prot(const void* const address) const {
-		if (MEMORY_BASIC_INFORMATION mbi; VirtualQueryEx(this->m_handle, address, &mbi, sizeof(mbi)))
-			return mbi.Protect;
-
-		throw FailedToQueryMemoryProtection();
-	}
-	uint32_t Process::set_mem_prot(void* const address, const size_t size, const uint32_t protection) const {
-		if (DWORD old_protection = 0; VirtualProtectEx(this->m_handle, address, size, protection, &old_protection))
-			return old_protection;
-
-		throw FailedToSetMemoryProtection();
-	}
-
-	uintptr_t Process::get_proc_addr(const std::string& module_name, const std::string& func_name) const {
+	// this uses the internal list of modules to find the function address
+	// not as consistant as the implementation below but probably faster
+	uintptr_t Process::get_proc_addr(const std::string& module_name, const std::string& func_name) const noexcept {
 		const auto mod = this->get_module(module_name);
 		if (!mod)
 			return 0;
@@ -170,6 +94,8 @@ namespace mango {
 
 		return exp->m_address;
 	}
+
+	// uses shellcode to call GetProcAddress() in the remote process
 	uintptr_t Process::get_proc_addr(const uintptr_t hmodule, const std::string& func_name) const {
 		const auto func_addr = this->get_proc_addr("kernel32.dll", "GetProcAddress");
 		if (!func_addr)
@@ -198,7 +124,7 @@ namespace mango {
 				"\x48\x83\xC4\x20", // add rsp, 0x20
 				"\xC3" // ret
 			).execute(*this);
-			
+
 			ret_value = uintptr_t(this->read<uint64_t>(ret_address));
 		} else {
 			Shellcode(
@@ -220,108 +146,144 @@ namespace mango {
 		return ret_value;
 	}
 
-	void Process::create_remote_thread(const void* const address) const {
-		const auto thread = CreateRemoteThread(this->m_handle, nullptr, 0,
-			LPTHREAD_START_ROUTINE(address), nullptr, 0, 0);
-		if (!thread)
-			throw FailedToCreateRemoteThread();
+	// get the PEB structure
+	PEB Process::get_peb() const {
+		static const auto NtQueryInformationProcess = NtQueryInformationProcessFn(
+			GetProcAddress(GetModuleHandle("ntdll.dll"), "NtQueryInformationProcess"));
 
-		WaitForSingleObject(thread, INFINITE);
-		CloseHandle(thread);
+		// get address of the peb structure
+		PROCESS_BASIC_INFORMATION process_info;
+		if (DWORD tmp = 0; NtQueryInformationProcess(this->m_handle, ProcessBasicInformation, &process_info, sizeof(process_info), &tmp))
+			throw FailedToQueryProcessInformation();
+
+		// read
+		return this->read<PEB>(process_info.PebBaseAddress);
 	}
 
+	// read from a memory address
+	void Process::read(const void* const address, void* const buffer, const size_t size) const {
+		if (this->is_self()) {
+			if (memcpy_s(buffer, size, address, size))
+				throw FailedToReadMemory();
+		} else if (!ReadProcessMemory(this->m_handle, address, buffer, size, nullptr))
+			throw FailedToReadMemory();
+	}
+
+	// write to a memory address
+	void Process::write(void* const address, const void* const buffer, const size_t size) const {
+		if (this->is_self()) {
+			if (memcpy_s(address, size, buffer, size))
+				throw FailedToWriteMemory();
+		} else if (!WriteProcessMemory(this->m_handle, address, buffer, size, nullptr))
+			throw FailedToWriteMemory();
+	}
+
+	// allocate virtual memory in the process (wrapper for VirtualAllocEx)
+	uintptr_t Process::alloc_virt_mem(const size_t size, const uint32_t protection, const uint32_t type) const {
+		if (const auto ret = VirtualAllocEx(this->m_handle, nullptr, size, type, protection); ret)
+			return uintptr_t(ret);
+		throw FailedToAllocateVirtualMemory();
+	}
+
+	// free virtual memory in the process (wrapper for VirtualFreeEx)
+	void Process::free_virt_mem(void* const address, const size_t size, const uint32_t type) const {
+		if (!VirtualFreeEx(this->m_handle, address, size, type))
+			throw FailedToFreeVirtualMemory();
+	}
+
+	// get the protection of a page of memory
+	uint32_t Process::get_mem_prot(const void* const address) const {
+		if (MEMORY_BASIC_INFORMATION mbi; VirtualQueryEx(this->m_handle, address, &mbi, sizeof(mbi)))
+			return mbi.Protect;
+		throw FailedToQueryMemoryProtection();
+	}
+
+	// set the protection, returns the old protection
+	uint32_t Process::set_mem_prot(void* const address, const size_t size, const uint32_t protection) const {
+		if (DWORD old_protection = 0; VirtualProtectEx(this->m_handle, address, size, protection, &old_protection))
+			return old_protection;
+		throw FailedToSetMemoryProtection();
+	}
+
+	// wrapper over CreateRemoteThread (will wait infinitely for the thread to finish)
+	void Process::create_remote_thread(const void* const address) const {
+		const auto thread_handle = CreateRemoteThread(this->m_handle, nullptr, 0,
+			LPTHREAD_START_ROUTINE(address), nullptr, 0, 0);
+
+		// rip
+		if (!thread_handle)
+			throw FailedToCreateRemoteThread();
+
+		WaitForSingleObject(thread_handle, INFINITE);
+		CloseHandle(thread_handle);
+	}
+
+	// updates the internal list of modules
 	void Process::update_modules() {
+		// clear any previously loaded modules
 		this->m_modules.clear();
 
 		HMODULE modules[1024];
+		DWORD size = 0;
 
-		// enumerate all loaded modules
-		if (DWORD size = 0; EnumProcessModulesEx(this->m_handle, modules, sizeof(modules), &size, LIST_MODULES_ALL)) {
-			// iterate over each module
-			for (size_t i = 0; i < size / sizeof(HMODULE); ++i) {
-				char buffer[256];
-				GetModuleBaseNameA(this->m_handle, modules[i], buffer, sizeof(buffer));
-				
-				std::string name(buffer);
+		// get all loaded modules
+		if (!EnumProcessModulesEx(this->m_handle, modules, sizeof(modules), &size, LIST_MODULES_ALL))
+			throw FailedToUpdateModules();
 
-				// change to lowercase
-				std::transform(name.begin(), name.end(), name.begin(), std::tolower);
+		// iterate over each module
+		for (size_t i = 0; i < size / sizeof(HMODULE); ++i) {
+			// get the module name
+			char buffer[256];
+			GetModuleBaseNameA(this->m_handle, modules[i], buffer, sizeof(buffer));
 
-				// add to list
-				this->m_modules[name] = PeHeader(*this, modules[i]);
-			}
-
-			// cache the process' module
-			std::string name(this->get_name());
+			std::string name(buffer);
 
 			// change to lowercase
 			std::transform(name.begin(), name.end(), name.begin(), std::tolower);
 
-			// this process' module
-			this->m_process_module = this->m_modules.at(name);
-		} else
-			throw FailedToUpdateModules();
-	}
-
-	// find a signature
-	uintptr_t Process::find_signature(const std::string& module_name, const std::string_view& pattern) const {
-		const auto parse_byte = [](const char c1, const char c2) {
-			uint8_t b = 0;
-			if (c1 >= '0' && c1 <= '9')
-				b += uint8_t((c1 - '0') * 16);
-			else
-				b += uint8_t((10 + (c1 - 'A')) * 16);
-
-			if (c2 >= '0' && c2 <= '9')
-				b += uint8_t(c2 - '0');
-			else
-				b += uint8_t(10 + (c2 - 'A'));
-			return b;
-		};
-
-		const auto mod = this->get_module(module_name);
-		if (!mod)
-			return 0;
-
-		// from the start of the module memory to the end
-		const auto start = mod->get_image_base(),
-			end = start + mod->get_image_size();
-
-		// read
-		const auto buffer = new uint8_t[end - start];
-		this->read(start, buffer, end - start);
-
-		// check for matching sequence
-		for (uintptr_t current = start; current < (end - pattern.size()); current += 1) {
-			size_t j = 0;
-			bool pattern_matches = true;
-			for (size_t i = 0; i < pattern.size(); ++i) {
-				// wildcard
-				if (pattern[i] == ' ')
-					continue;
-
-				j += 1;
-				if (pattern[i] == '?')
-					continue;
-
-				// check if byte matches
-				if (buffer[(current - start) + j - 1] == parse_byte(std::toupper(pattern[i]), std::toupper(pattern[i + 1]))) {
-					i += 1;
-					continue;
-				}
-
-				pattern_matches = false;
-				break;
-			}
-
-			// found pattern
-			if (pattern_matches) {
-				delete[] buffer;
-				return current;
-			}
+			// add to list
+			this->m_modules[name] = LoadedModule(*this, modules[i]);
 		}
 
-		delete[] buffer;
-		return 0;
+		// cache the process' module
+		std::string name(this->get_name());
+
+		// change to lowercase
+		std::transform(name.begin(), name.end(), name.begin(), std::tolower);
+
+		// this process' module
+		this->m_process_module = this->m_modules.at(name);
+	}
+
+	// get the name of the process (to cache it)
+	std::string Process::query_name() const {
+		char buffer[1024];
+		if (DWORD size = sizeof(buffer); !QueryFullProcessImageName(this->m_handle, 0, buffer, &size))
+			throw FailedToQueryProcessName();
+
+		std::string name(buffer);
+
+		// erase everything before the last back slash
+		const size_t pos = name.find_last_of('\\');
+		if (pos != std::string::npos)
+			name = name.substr(pos + 1);
+
+		return name;
+	}
+
+	// check whether the process is 64bit or not (to cache it)
+	bool Process::query_is_64bit() const {
+		// check if Wow64 is present
+		BOOL is_wow64 = false;
+		if (!IsWow64Process(this->m_handle, &is_wow64))
+			throw FailedToQueryProcessArchitecture();
+
+		// 32bit process on 64bit os
+		if (is_wow64)
+			return false;
+
+		SYSTEM_INFO system_info;
+		GetNativeSystemInfo(&system_info);
+		return system_info.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_AMD64;
 	}
 } // namespace mango

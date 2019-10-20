@@ -1,5 +1,6 @@
-#include "../../include/epic/process.h"
+#include "../../include/epic/loader.h"
 
+#include "../../include/epic/process.h"
 #include "../../include/epic/shellcode.h"
 #include "../../include/misc/logger.h"
 #include "../../include/misc/error_codes.h"
@@ -76,7 +77,7 @@ namespace mango {
 
 			auto module_addr = process.get_module_addr(module_name);
 			if (!module_addr)
-				module_addr = process.load_library(module_name);
+				module_addr = load_library(process, module_name);
 
 			// iterate through each thunk
 			for (uintptr_t j = 0; true; j += sizeof(image_thunk_data)) {
@@ -125,25 +126,26 @@ namespace mango {
 		return uintptr_t(module_base);
 	}
 
-	uintptr_t Process::load_library(const std::string& dll_path) const {
-		const auto func_addr = this->get_proc_addr("kernel32.dll", "LoadLibraryA");
+	// inject a dll into another process (using LoadLibrary)
+	uintptr_t load_library(const Process& process, const std::string& dll_path) {
+		const auto func_addr = process.get_proc_addr("kernel32.dll", "LoadLibraryA");
 		if (!func_addr)
 			throw FailedToGetFunctionAddress();
 
 		// this will be where the dll path is stored in the process
-		const auto str_address = uintptr_t(this->alloc_virt_mem(dll_path.size() + 1));
+		const auto str_address = uintptr_t(process.alloc_virt_mem(dll_path.size() + 1));
 
 		// for the return value of LoadLibraryA
-		const auto ret_address = uintptr_t(this->alloc_virt_mem(this->get_ptr_size()));
+		const auto ret_address = uintptr_t(process.alloc_virt_mem(process.get_ptr_size()));
 
 		// write the dll name
-		this->write(str_address, dll_path.data(), dll_path.size() + 1);
+		process.write(str_address, dll_path.data(), dll_path.size() + 1);
 
 		// HMODULE
 		uintptr_t ret_value = 0;
 
 		// this shellcode basically just calls LoadLibraryA()
-		if (this->is_64bit()) {
+		if (process.is_64bit()) {
 			mango::Shellcode(
 				"\x48\x83\xEC\x20", // sub rsp, 0x20
 				"\x48\xB9", str_address, // movabs rcx, str_address
@@ -152,10 +154,10 @@ namespace mango {
 				"\x48\xA3", ret_address, // movabs [ret_address], rax
 				"\x48\x83\xC4\x20", // add rsp, 0x20
 				"\xC3" // ret
-			).execute(*this);
+			).execute(process);
 
 			// the HMODULE returned by LoadLibrary
-			ret_value = uintptr_t(this->read<uint64_t>(ret_address));
+			ret_value = uintptr_t(process.read<uint64_t>(ret_address));
 		} else {
 			mango::Shellcode(
 				"\x68", uint32_t(str_address), // push str_address
@@ -163,21 +165,23 @@ namespace mango {
 				"\xFF\xD0", // call eax
 				"\xA3", uint32_t(ret_address), // mov [ret_address], eax
 				"\xC3" // ret
-			).execute(*this);
+			).execute(process);
 
 			// the HMODULE returned by LoadLibrary
-			ret_value = this->read<uint32_t>(ret_address);
+			ret_value = process.read<uint32_t>(ret_address);
 		}
-		
+
 		// free memory
-		this->free_virt_mem(str_address);
-		this->free_virt_mem(ret_address);
+		process.free_virt_mem(str_address);
+		process.free_virt_mem(ret_address);
 
 		// truncated if called from a 64bit program to a 32bit program
 		return ret_value;
 	}
 
-	uintptr_t Process::manual_map(const std::string& dll_path) const {
+	// manual map a dll into another process
+	// SEVERE BUGS if module is already mapped into the process via LoadLibrary
+	uintptr_t manual_map(const Process& process, const std::string& dll_path) {
 		// open file
 		const auto file_handle = CreateFileA(
 			dll_path.c_str(),
@@ -209,16 +213,16 @@ namespace mango {
 		// don't need it anymore
 		CloseHandle(file_handle);
 
-		const auto ret_value = this->manual_map(image_buffer);
+		const auto ret_value = manual_map(process, image_buffer);
 
 		// free memory
 		VirtualFree(image_buffer, 0, MEM_RELEASE);
 
 		return ret_value;
 	}
-	uintptr_t Process::manual_map(const uint8_t* const image) const {
-		return this->is_64bit() ? 
-			manual_map_internal<true>(*this, image) :
-			manual_map_internal<false>(*this, image);
+	uintptr_t manual_map(const Process& process, const uint8_t* const image) {
+		return process.is_64bit() ?
+			manual_map_internal<true>(process, image) :
+			manual_map_internal<false>(process, image);
 	}
 } // namespace mango
