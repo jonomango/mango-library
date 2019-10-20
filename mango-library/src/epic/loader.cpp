@@ -75,9 +75,7 @@ namespace mango {
 			process.read(module_base + iat_entry.Name, module_name, 256);
 			module_name[255] = '\0';
 
-			auto module_addr = process.get_module_addr(module_name);
-			if (!module_addr)
-				module_addr = load_library(process, module_name);
+			const auto module_addr = load_library(process, module_name);
 
 			// iterate through each thunk
 			for (uintptr_t j = 0; true; j += sizeof(image_thunk_data)) {

@@ -291,6 +291,6 @@ void run_unit_tests() {
 		test_iat_hooks(process);
 		test_shellcode(process);
 	} catch (mango::MangoError& e) {
-		mango::error() << "Exception caught: " << e.what() << std::endl;
+		mango::logger.error("Exception caught: ", e.what());
 	}
 }

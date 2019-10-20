@@ -27,9 +27,6 @@
     <ClCompile Include="src\epic\iat_hook.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\misc\logger.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\misc\misc.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

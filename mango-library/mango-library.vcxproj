@@ -45,7 +45,6 @@
     <ClCompile Include="src\epic\loaded_module.cpp" />
     <ClCompile Include="src\epic\process.cpp" />
     <ClCompile Include="src\epic\shellcode.cpp" />
-    <ClCompile Include="src\misc\logger.cpp" />
     <ClCompile Include="src\misc\misc.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

@@ -2,6 +2,7 @@
 
 #include "tests.h"
 
+#include <epic/loader.h>
 #include <epic/process.h>
 #include <epic/pattern_scanner.h>
 #include <misc/vector.h>
@@ -13,21 +14,46 @@
 
 // TODO:
 // std::source_location in exceptions when c++20 comes out
+// fix manual mapper bug
 
+
+// setup logger channels
+void setup_logger() {
+	static const auto set_attribute = [](const WORD attribute) {
+		static const auto handle = GetStdHandle(STD_OUTPUT_HANDLE);
+		SetConsoleTextAttribute(handle, attribute);
+	};
+
+	// info channel (logger.info(...))
+	mango::logger.set_info_channel([](std::stringstream&& ss) {
+		std::cout << "[";
+		set_attribute(FOREGROUND_BLUE | FOREGROUND_GREEN);
+		std::cout << "info";
+		set_attribute(FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED);
+		std::cout << "] " << ss.str() << std::endl;
+	});
+
+	// error channel (logger.error(...))
+	mango::logger.set_error_channel([](std::stringstream&& ss) {
+		std::cout << "[";
+		set_attribute(FOREGROUND_RED);
+		std::cout << "error";
+		set_attribute(FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED);
+		std::cout << "] " << ss.str() << std::endl;
+	});
+}
 
 int main() {
+	setup_logger();
+
+	// in case we broke some shit
 	run_unit_tests();
 
+	// mango::Process can throw exceptions
 	try {
 		mango::Process process(GetCurrentProcessId());
-		mango::info() << process.get_name() << std::endl;
-
-		// print all exported functions in kernel32.dll
-		for (const auto& [module_name, entry] : process.get_module("kernel32.dll")->get_exports()) {
-			mango::info() << module_name << " " << std::hex << entry.m_address << std::endl;
-		}
 	} catch (mango::MangoError& e) {
-		mango::error() << e.what() << std::endl;
+		mango::logger.error(e.what());
 	}
 
 	getchar();

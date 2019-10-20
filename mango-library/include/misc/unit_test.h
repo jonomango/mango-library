@@ -10,15 +10,15 @@ namespace mango {
 	class UnitTest {
 	public:
 		UnitTest(std::string&& name) : m_name(name) {
-			mango::info() << "Starting unit tests: " << this->m_name << std::endl;
+			mango::logger.info("Starting unit tests: ", this->m_name);
 		}
 		~UnitTest() {
 			if (this->m_failures > 0)
-				mango::error() << "Ending unit tests: " << this->m_name << " (" << 
-				this->m_successes << " successes, " << this->m_failures << " failures)" << std::endl;
+				mango::logger.error("Ending unit tests: ", this->m_name, " (", 
+				this->m_successes, " successes, ", this->m_failures, " failures)");
 			else
-				mango::info() << "Ending unit tests: " << this->m_name << " (" << 
-				this->m_successes << " successes, " << this->m_failures << " failures)" << std::endl;
+				mango::logger.info("Ending unit tests: ", this->m_name, " (", 
+				this->m_successes, " successes, ", this->m_failures, " failures)");
 		}
 
 		// custom check, return true/false in functor
@@ -67,19 +67,18 @@ namespace mango {
 			++this->m_test_num;
 		}
 
+		// pass the reason for failure
 		template <typename ...Args>
 		void failure(Args&& ...args) {
 			++this->m_failures;
 
-			auto& stream = mango::error();
-
-			// log it
-			stream << "Test #" << ++this->m_test_num << ": failed";
-			if (sizeof...(args)) {
-				stream << ", ";
-				(stream << ... << std::forward<Args>(args));
+			// if no reason
+			if (sizeof...(args) <= 0) {
+				mango::logger.error("Test #", ++this->m_test_num, ": failed");
+				return;
 			}
-			stream << std::endl;
+
+			mango::logger.error("Test #", ++this->m_test_num, ": failed, ", args...);
 		}
 
 	private:
