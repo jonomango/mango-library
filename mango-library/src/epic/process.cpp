@@ -13,7 +13,7 @@
 
 namespace mango {
 	// initialization
-	void Process::setup(const uint32_t pid) {
+	void Process::setup(const uint32_t pid, const SetupOptions& options) {
 		this->release();
 
 		// open a handle to the process
@@ -31,7 +31,7 @@ namespace mango {
 			throw InvalidProcessHandle();
 
 		this->m_is_valid = true;
-
+		this->m_options = options;
 		this->m_pid = pid;
 		this->m_is_self = (pid == GetCurrentProcessId());
 
@@ -42,7 +42,10 @@ namespace mango {
 			this->m_is_64bit = this->query_is_64bit();
 
 			// update the internal list of modules
-			this->update_modules();
+			if (!options.m_defer_module_loading)
+				this->load_modules();
+			else
+				this->query_module_addresses();
 		} catch (...) {
 			this->release();
 			throw;
@@ -59,23 +62,30 @@ namespace mango {
 	}
 
 	// get a loaded module, case-insensitive (passing "" for name returns the current process module)
-	const LoadedModule* Process::get_module(std::string name) const noexcept {
+	const LoadedModule* Process::get_module(std::string name) const {
 		// return own module
 		if (name.empty())
-			return &this->m_process_module;
+			name = this->get_name();
 
 		// change to lowercase
 		std::transform(name.begin(), name.end(), name.begin(), std::tolower);
 
 		// find the module
-		if (const auto it = this->m_modules.find(name); it != this->m_modules.end())
+		if (const auto& it = this->m_modules.find(name); it != this->m_modules.end())
 			return &it->second;
+		
+		// not using defer loading
+		if (!this->m_options.m_defer_module_loading)
+			return nullptr;
 
+		// module might not be loaded yet (defer loading option)
+		if (const auto& it = this->m_module_addresses.find(name); it != this->m_module_addresses.end())
+			this->m_modules[it->first] = LoadedModule(*this, it->second);
 		return nullptr;
 	}
 
 	// get the base address of a module
-	uintptr_t Process::get_module_addr(const std::string& module_name) const noexcept {
+	uintptr_t Process::get_module_addr(const std::string& module_name) const {
 		if (const auto mod = this->get_module(module_name); mod)
 			return mod->get_image_base();
 		return 0;
@@ -83,7 +93,7 @@ namespace mango {
 
 	// this uses the internal list of modules to find the function address
 	// not as consistant as the implementation below but probably faster
-	uintptr_t Process::get_proc_addr(const std::string& module_name, const std::string& func_name) const noexcept {
+	uintptr_t Process::get_proc_addr(const std::string& module_name, const std::string& func_name) const {
 		const auto mod = this->get_module(module_name);
 		if (!mod)
 			return 0;
@@ -219,40 +229,16 @@ namespace mango {
 	}
 
 	// updates the internal list of modules
-	void Process::update_modules() {
+	void Process::load_modules() {
+		// update addresses
+		this->query_module_addresses();
+
 		// clear any previously loaded modules
 		this->m_modules.clear();
 
-		HMODULE modules[1024];
-		DWORD size = 0;
-
-		// get all loaded modules
-		if (!EnumProcessModulesEx(this->m_handle, modules, sizeof(modules), &size, LIST_MODULES_ALL))
-			throw FailedToUpdateModules();
-
-		// iterate over each module
-		for (size_t i = 0; i < size / sizeof(HMODULE); ++i) {
-			// get the module name
-			char buffer[256];
-			GetModuleBaseNameA(this->m_handle, modules[i], buffer, sizeof(buffer));
-
-			std::string name(buffer);
-
-			// change to lowercase
-			std::transform(name.begin(), name.end(), name.begin(), std::tolower);
-
-			// add to list
-			this->m_modules[name] = LoadedModule(*this, modules[i]);
-		}
-
-		// cache the process' module
-		std::string name(this->get_name());
-
-		// change to lowercase
-		std::transform(name.begin(), name.end(), name.begin(), std::tolower);
-
-		// this process' module
-		this->m_process_module = this->m_modules.at(name);
+		// load every module
+		for (const auto& [name, address] : this->m_module_addresses)
+			this->m_modules[name] = LoadedModule(*this, address);
 	}
 
 	// get the name of the process (to cache it)
@@ -285,5 +271,33 @@ namespace mango {
 		SYSTEM_INFO system_info;
 		GetNativeSystemInfo(&system_info);
 		return system_info.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_AMD64;
+	}
+
+	// update the internal list of module addresses
+	void Process::query_module_addresses() {
+		// clear any previous module addresses
+		this->m_module_addresses.clear();
+
+		DWORD size = 0;
+		HMODULE modules[1024];
+
+		// get all loaded modules
+		if (!EnumProcessModulesEx(this->m_handle, modules, sizeof(modules), &size, this->is_64bit() ? LIST_MODULES_64BIT : LIST_MODULES_32BIT))
+			throw FailedToEnumModules();
+
+		// iterate over each module
+		for (size_t i = 0; i < size / sizeof(HMODULE); ++i) {
+			// get the module name
+			char buffer[256];
+			GetModuleBaseNameA(this->m_handle, modules[i], buffer, sizeof(buffer));
+
+			std::string name(buffer);
+
+			// change to lowercase
+			std::transform(name.begin(), name.end(), name.begin(), std::tolower);
+
+			// add to list
+			this->m_module_addresses[name] = uintptr_t(modules[i]);
+		}
 	}
 } // namespace mango

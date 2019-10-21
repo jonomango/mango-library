@@ -25,7 +25,7 @@ namespace mango {
 
 		// free shellcode that was previously allocated with Shellcode::allocate()
 		// NOTE: do not modify (.push or .clear) shellcode between allocate() and free() calls
-		void free(const Process& process, const uintptr_t address) const;
+		static void free(const Process& process, const uintptr_t address);
 
 		// execute the shellcode in the process, basically just calls
 		// Shellcode::allocate(), Process::create_remote_thread(), Shellcode::free()

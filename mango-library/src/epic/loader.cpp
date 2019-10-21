@@ -76,6 +76,8 @@ namespace mango {
 			module_name[255] = '\0';
 
 			const auto module_addr = load_library(process, module_name);
+			if (!module_addr)
+				throw FailedToResolveImport();
 
 			// iterate through each thunk
 			for (uintptr_t j = 0; true; j += sizeof(image_thunk_data)) {

@@ -33,8 +33,9 @@ namespace mango {
 	mango_create_error(FailedToSetMemoryProtection, "Failed to set memory pages' protection.");
 	mango_create_error(FailedToGetFunctionAddress, "Failed to get function address.");
 	mango_create_error(FailedToCreateRemoteThread, "Failed to create a thread in the process.");
-	mango_create_error(FailedToUpdateModules, "Failed to load process modules.");
+	mango_create_error(FailedToEnumModules, "Failed to enum process modules.");
 	mango_create_error(FailedToFindImportModule, "Failed to find imported module in IAT.");
 	mango_create_error(FailedToFindImportFunction, "Failed to find imported function in IAT.");
+	mango_create_error(FailedToResolveImport, "Failed to resolve import when manually mapping image.");
 	mango_create_error(FailedToReadFile, "Failed to read file.");
 } // namespace mango

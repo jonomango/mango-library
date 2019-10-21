@@ -15,16 +15,23 @@ namespace mango {
 	class Process {
 	public:
 		using ProcessModules = std::unordered_map<std::string, LoadedModule>;
+		using ModuleAddressMap = std::unordered_map<std::string, uintptr_t>;
+
+		struct SetupOptions {
+			bool m_defer_module_loading = false;
+		};
 
 	public:
 		Process() = default; // left in an invalid state
-		explicit Process(const uint32_t pid) { this->setup(pid); }
+		explicit Process(const uint32_t pid, const SetupOptions& options = SetupOptions()) {
+			this->setup(pid, options); 
+		}
 
 		// just calls release
 		~Process() noexcept { this->release(); }
 
 		// initialization
-		void setup(const uint32_t pid);
+		void setup(const uint32_t pid, const SetupOptions& options = SetupOptions());
 
 		// clean up
 		void release() noexcept;
@@ -54,14 +61,14 @@ namespace mango {
 		const ProcessModules& get_modules() const noexcept { return this->m_modules; }
 
 		// get a loaded module, case-insensitive (passing "" for name returns the current process module)
-		const LoadedModule* get_module(std::string name = "") const noexcept;
+		const LoadedModule* get_module(std::string name = "") const;
 
 		// get the base address of a module
-		uintptr_t get_module_addr(const std::string& module_name = "") const noexcept;
+		uintptr_t get_module_addr(const std::string& module_name = "") const;
 
 		// this uses the internal list of modules to find the function address
 		// not as consistant as the implementation below but probably faster
-		uintptr_t get_proc_addr(const std::string& module_name, const std::string& func_name) const noexcept;
+		uintptr_t get_proc_addr(const std::string& module_name, const std::string& func_name) const;
 
 		// uses shellcode to call GetProcAddress() in the remote process
 		uintptr_t get_proc_addr(const uintptr_t hmodule, const std::string& func_name) const;
@@ -132,7 +139,7 @@ namespace mango {
 		}
 
 		// updates the internal list of modules
-		void update_modules();
+		void load_modules();
 
 		// a more intuitive way to test for validity
 		explicit operator bool() const { return this->is_valid(); }
@@ -148,14 +155,18 @@ namespace mango {
 		// check whether the process is 64bit or not (to cache it)
 		bool query_is_64bit() const;
 
+		// update the internal list of module addresses
+		void query_module_addresses();
+
 	private:
 		bool m_is_valid = false,
 			m_is_self = false, 
 			m_is_64bit = false;
 		HANDLE m_handle = nullptr;
 		uint32_t m_pid = 0;
-		LoadedModule m_process_module;
-		ProcessModules m_modules;
+		SetupOptions m_options;
+		ModuleAddressMap m_module_addresses; // needed for deferred loading
+		mutable ProcessModules m_modules; // mutable for deferred loading
 		std::string m_process_name;
 	};
 } // namespace mango

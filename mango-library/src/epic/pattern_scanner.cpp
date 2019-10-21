@@ -2,12 +2,17 @@
 
 #include "../../include/epic/process.h"
 
+#include <memory>
+
 
 namespace mango {
 	// find a pattern, IDA-style (example: "12 ? 34 ? ? 45 F9")
-	uintptr_t find_pattern(const Process& process, const std::string& module_name, const std::string_view& pattern) {
+	uintptr_t find_pattern(Process& process, const std::string& module_name, const std::string_view& pattern) {
 		// take 2 chars (ex: 'F' and 'F') and return the byte (0xFF)
-		const auto parse_byte = [](const char c1, const char c2) {
+		const auto parse_byte = [](char c1, char c2) {
+			c1 = std::toupper(c1);
+			c2 = std::toupper(c2);
+
 			uint8_t b = 0;
 			if (c1 >= '0' && c1 <= '9')
 				b += uint8_t((c1 - '0') * 16);
@@ -30,8 +35,8 @@ namespace mango {
 			end = start + mod->get_image_size();
 
 		// read
-		const auto buffer = new uint8_t[end - start];
-		process.read(start, buffer, end - start);
+		const auto buffer = std::make_unique<uint8_t[]>(end - start);
+		process.read(start, buffer.get(), end - start);
 
 		// check for matching sequence
 		for (uintptr_t current = start; current < (end - pattern.size()); current += 1) {
@@ -47,7 +52,7 @@ namespace mango {
 					continue;
 
 				// check if byte matches
-				if (buffer[(current - start) + j - 1] == parse_byte(std::toupper(pattern[i]), std::toupper(pattern[i + 1]))) {
+				if (buffer[(current - start) + j - 1] == parse_byte(pattern[i], pattern[i + 1])) {
 					i += 1;
 					continue;
 				}
@@ -57,13 +62,10 @@ namespace mango {
 			}
 
 			// found pattern
-			if (pattern_matches) {
-				delete[] buffer;
+			if (pattern_matches)
 				return current;
-			}
 		}
 
-		delete[] buffer;
 		return 0;
 	}
 } // namespace mango

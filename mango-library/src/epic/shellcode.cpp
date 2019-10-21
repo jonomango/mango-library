@@ -15,7 +15,7 @@ namespace mango {
 
 	// free shellcode that was previously allocated with Shellcode::allocate()
 	// NOTE: do not modify (.push or .clear) shellcode between allocate() and free() calls
-	void Shellcode::free(const Process& process, const uintptr_t address) const {
+	void Shellcode::free(const Process& process, const uintptr_t address) {
 		process.free_virt_mem(address);
 	}
 
