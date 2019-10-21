@@ -1,9 +1,8 @@
-#include "tests.h"
-
 #include <epic/loader.h>
 #include <epic/process.h>
 #include <epic/pattern_scanner.h>
 #include <epic/shellcode.h>
+#include <epic/vmt_hook.h>
 #include <misc/vector.h>
 #include <misc/logger.h>
 #include <misc/error_codes.h>
@@ -14,11 +13,11 @@
 #include <Psapi.h>
 #include <functional>
 
+#include "unit_tests.h"
+
 // TODO:
 // std::source_location in exceptions when c++20 comes out
-// imported manual mapper (apischema + bug fix)
-// maybe optional lazy module loader (at first access init the LoadedModule)
-// defer module loading
+// improve manual mapper (apischema + bug fix)
 
 
 // setup logger channels
@@ -55,30 +54,40 @@ int main() {
 
 	// mango::Process constructor should always be wrapped in a try-catch block
 	try {
-		mango::Process::SetupOptions options;
-		options.m_defer_module_loading = true;
+		mango::Process::SetupOptions process_options;
+		process_options.m_defer_module_loading = true;
 
-		mango::Process process(GetCurrentProcessId(), options);
+		mango::Process process(GetCurrentProcessId(), process_options);
 
-		const char* text = "Hello world!";
-		const auto hello_world_func = mango::Shellcode(
-			"\x48\x83\xEC\x20", // sub rsp, 0x20
-			"\x48\xB9", uint64_t(text), // mov rcx, text
-			"\x48\xB8", uint64_t(&std::puts), // mov rax, &std::puts
-			"\xFF\xD0", // call rax
-			"\x48\x83\xC4\x20", // add rsp, 0x20
-			"\xC3"
-		).allocate(process);
+		class ExampleClass {
+		public:
+			virtual void example_func() {
+				mango::logger.info("example_func()");
+			}
+		};
 
-		mango::Shellcode(
-			"\x48\x83\xEC\x20", // sub rsp, 0x20
-			"\x48\xB8", uint64_t(hello_world_func), // mov rax, hello_world_func
-			"\xFF\xD0", // call rax
-			"\x48\x83\xC4\x20", // add rsp, 0x20
-			"\xC3"
-		).execute(process);
+		const auto hooked_func = static_cast<void(__thiscall*)(void*)>([](void*) {
+			mango::logger.info("hooked_func()");
+		});
 
-		mango::Shellcode::free(process, hello_world_func);
+		const auto example_a = std::make_unique<ExampleClass>();
+		const auto example_b = std::make_unique<ExampleClass>();
+
+		mango::logger.info("A before: ", std::hex, process.read<uintptr_t>(example_a.get()));
+		mango::logger.info("B before: ", std::hex, process.read<uintptr_t>(example_b.get()));
+
+		mango::VmtHook::SetupOptions vmt_options;
+		vmt_options.m_replace_table = true;
+	
+		mango::VmtHook vmt_hook(process, example_a.get(), vmt_options);
+		vmt_hook.hook(0, hooked_func);
+
+		mango::logger.info("A after: ", std::hex, process.read<uintptr_t>(example_a.get()));
+		mango::logger.info("B after: ", std::hex, process.read<uintptr_t>(example_b.get()));
+
+		example_a->example_func();
+		example_b->example_func();
+		
 	} catch (mango::MangoError& e) {
 		mango::logger.error(e.what());
 	}

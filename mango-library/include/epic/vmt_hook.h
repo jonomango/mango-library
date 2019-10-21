@@ -12,15 +12,30 @@ namespace mango {
 		using OriginalFuncs = std::unordered_map<size_t, uintptr_t>;
 
 	public:
+		struct SetupOptions {
+			// to note, if you don't replace the table you will be hooking the function for EVERY instance of the class
+			// while replacing the table will only hook for this specific instance.
+			bool m_replace_table = true;
+
+			// only used when m_replace_table = true 
+			// HIGHLY recommended to set this manually to avoid an unnecessarily large allocation
+			size_t m_vtable_size = 0; 
+		};
+
+	public:
 		VmtHook() = default;
-		VmtHook(const Process& process, const uintptr_t instance) { this->setup(process, instance); }
-		VmtHook(const Process& process, const void* const instance) { this->setup(process, instance); }
+		VmtHook(const Process& process, const uintptr_t instance, const SetupOptions& options = SetupOptions()) {
+			this->setup(process, instance, options); 
+		}
+		VmtHook(const Process& process, const void* const instance, const SetupOptions& options = SetupOptions()) { 
+			this->setup(process, instance, options); 
+		}
 		~VmtHook() { this->release(); }
 
 		// instance is the address of the class instance to be hooked
-		void setup(const Process& process, const uintptr_t instance);
-		void setup(const Process& process, const void* const instance) {
-			this->setup(process, uintptr_t(instance));
+		void setup(const Process& process, const uintptr_t instance, const SetupOptions& options = SetupOptions());
+		void setup(const Process& process, const void* const instance, const SetupOptions& options = SetupOptions()) {
+			this->setup(process, uintptr_t(instance), options);
 		}
 
 		// unhooks all functions
@@ -49,12 +64,16 @@ namespace mango {
 		VmtHook& operator=(const VmtHook&) = delete;
 
 	private:
-		// unhook also uses this
+		// does all the heavy lifting
 		uintptr_t hook_internal(const size_t index, const uintptr_t func);
 
 	private:
 		const Process* m_process = nullptr; // this is kinda poopoo
 		OriginalFuncs m_original_funcs;
-		uintptr_t m_vtable = 0;
+		SetupOptions m_options;
+		uintptr_t m_instance = 0,
+			m_vtable = 0,
+			m_original_vtable = 0;
+		size_t m_vtable_size = 0;
 	};
 } // namespace mango

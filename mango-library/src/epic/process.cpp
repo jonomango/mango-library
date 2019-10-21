@@ -80,7 +80,7 @@ namespace mango {
 
 		// module might not be loaded yet (defer loading option)
 		if (const auto& it = this->m_module_addresses.find(name); it != this->m_module_addresses.end())
-			this->m_modules[it->first] = LoadedModule(*this, it->second);
+			return &(this->m_modules[it->first] = LoadedModule(*this, it->second));
 		return nullptr;
 	}
 

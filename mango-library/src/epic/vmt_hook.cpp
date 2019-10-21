@@ -7,15 +7,59 @@
 
 namespace mango {
 	// instance is the address of the class instance to be hooked
-	void VmtHook::setup(const Process& process, const uintptr_t instance) {
+	void VmtHook::setup(const Process& process, const uintptr_t instance, const SetupOptions& options) {
 		this->release();
 
 		this->m_process = &process;
+		this->m_options = options;
+		this->m_instance = instance;
 
-		// void**
-		this->m_vtable = uintptr_t(process.is_64bit() ?
+		// original vtable
+		this->m_original_vtable = uintptr_t(process.is_64bit() ?
 			process.read<uint64_t>(instance) :
 			process.read<uint32_t>(instance));
+
+		// if m_replace_table is true:
+		// create a new table, copy contents and swap
+		// else:
+		// just write directly to the current vtable
+		if (options.m_replace_table) {
+			this->m_vtable_size = options.m_vtable_size;
+
+			// user didn't provide vtable size, attempt to calculate it ourselves (not accurate)
+			if (!this->m_vtable_size) {
+				// try-catch block is in case we hit a bad page
+				try {
+					// keep increasing m_vtable_size until nullptr
+					if (process.is_64bit()) {
+						while (process.read<uint64_t>(this->m_original_vtable + this->m_vtable_size + 0x8))
+							this->m_vtable_size += 0x8;
+					} else {
+						while (process.read<uint32_t>(this->m_original_vtable + this->m_vtable_size + 0x4))
+							this->m_vtable_size += 0x4;
+					}
+				} catch (FailedToReadMemory&) {}
+			}
+
+			if (!this->m_vtable_size)
+				throw InvalidVtableSize();
+			mango::logger.info("num vfuncs: ", this->m_vtable_size / process.get_ptr_size());
+
+			// allocate a new vtable
+			this->m_vtable = process.alloc_virt_mem(this->m_vtable_size);
+
+			// copy the old values to the new table
+			const auto old_table_content = std::make_unique<uint8_t[]>(this->m_vtable_size);
+			process.read(this->m_original_vtable, old_table_content.get(), this->m_vtable_size);
+			process.write(this->m_vtable, old_table_content.get(), this->m_vtable_size);
+
+			// swap the tables
+			this->m_process->is_64bit() ?
+				this->m_process->write<uint64_t>(this->m_instance, uint64_t(this->m_vtable)) :
+				this->m_process->write<uint32_t>(this->m_instance, uint32_t(this->m_vtable));
+		} else {
+			this->m_vtable = this->m_original_vtable;
+		}
 	}
 
 	// unhooks all functions
@@ -23,13 +67,28 @@ namespace mango {
 		if (!this->m_process || !this->m_vtable)
 			return;
 
-		// unhook all hooked functions
-		for (const auto& [index, addr] : this->m_original_funcs)
-			this->hook_internal(index, addr);
+		// restore
+		if (this->m_options.m_replace_table) {
+			// no need to manually unhook every function since we can just replace the table
+			this->m_process->is_64bit() ?
+				this->m_process->write<uint64_t>(this->m_instance, uint64_t(this->m_original_vtable)) :
+				this->m_process->write<uint32_t>(this->m_instance, uint32_t(this->m_original_vtable));
 
+			// free the vtable that we allocated
+			this->m_process->free_virt_mem(this->m_vtable);
+		} else {
+			// unhook all hooked functions
+			for (const auto& [index, addr] : this->m_original_funcs)
+				this->hook_internal(index, addr);
+		}
+
+		// reset
 		this->m_original_funcs.clear();
 		this->m_process = nullptr;
+		this->m_instance = 0;
 		this->m_vtable = 0;
+		this->m_original_vtable = 0;
+		this->m_vtable_size = 0;
 	}
 
 	// hook a function at the specified index (returns the original)
@@ -54,6 +113,7 @@ namespace mango {
 		}
 	}
 
+	// does all the heavy lifting
 	uintptr_t VmtHook::hook_internal(const size_t index, const uintptr_t func) {
 		if (this->m_process->is_64bit()) {
 			// the address of where the virtual function is

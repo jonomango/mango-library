@@ -1,4 +1,4 @@
-#include "tests.h"
+#include "unit_tests.h"
 
 #include <epic/process.h>
 #include <epic/vmt_hook.h>
@@ -120,7 +120,10 @@ void test_vmt_hooks(mango::Process& process) {
 	vmt_hook.release();
 	vmt_hook.release();
 
-	vmt_hook.setup(process, example_instance.get());
+	mango::VmtHook::SetupOptions vmt_options;
+	vmt_options.m_replace_table = true;
+
+	vmt_hook.setup(process, example_instance.get(), vmt_options);
 
 	// vmt_hook is setup, it is now in an invalid state
 	unit_test.expect_nonzero(vmt_hook);
@@ -129,7 +132,12 @@ void test_vmt_hooks(mango::Process& process) {
 	// not hooked, should return 1234'5678
 	unit_test.expect_value(example_instance->example_func(), 1234'5678);
 
+	const auto original_vtable = process.read<uintptr_t>(example_instance.get());
+
 	vmt_hook.hook<uintptr_t>(0, hooked_func);
+
+	// make sure we're placing the table and not the table contents
+	unit_test.expect_nonzero(process.read<uintptr_t>(example_instance.get()) == original_vtable);
 
 	// can't hook the same function twice
 	unit_test.expect_custom([&]() {
@@ -148,6 +156,7 @@ void test_vmt_hooks(mango::Process& process) {
 
 	// not hooked anymore, should return 1234'5678
 	unit_test.expect_value(example_instance->example_func(), 1234'5678);
+	unit_test.expect_value(process.read<uintptr_t>(example_instance.get()), original_vtable);
 
 	const auto original = process.get_vfunc<uintptr_t>(example_instance.get(), 0);
 

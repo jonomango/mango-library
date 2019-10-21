@@ -13,14 +13,15 @@ public:\
 };
 
 namespace mango {
-	using MangoError = std::exception;
+	class MangoError : public std::exception {};
+
+	mango_create_error(FunctionAlreadyHooked, "Function is already hooked.");
 
 	mango_create_error(InvalidProcessHandle, "Failed to get a valid process handle. Usually caused by insufficient permissions or invalid process ID.");
 	mango_create_error(InvalidFileHandle, "Failed to get a valid file handle. Usually caused by a non-existant file.");
 	mango_create_error(InvalidFileSize, "Invalid file size.");
 	mango_create_error(InvalidPEHeader, "Invalid PE header.");
-
-	mango_create_error(FunctionAlreadyHooked, "Function is already hooked.");
+	mango_create_error(InvalidVtableSize, "Invalid VTable size, caused when VTable size is 0.");
 
 	mango_create_error(FailedToQueryProcessArchitecture, "Failed to query process architecture type (x64 or x86).");
 	mango_create_error(FailedToQueryProcessName, "Failed to query process name.");

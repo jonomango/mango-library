@@ -91,9 +91,9 @@ namespace mango {
 		}
 
 		// easy to use wrapper for read()
-		template <typename Ret, typename Addr> 
-		Ret read(Addr const address) const {
-			Ret buffer; this->read(address, &buffer, sizeof(buffer));
+		template <typename T, typename Addr> 
+		T read(Addr const address) const {
+			T buffer; this->read(address, &buffer, sizeof(buffer));
 			return buffer;
 		}
 
@@ -104,8 +104,8 @@ namespace mango {
 		}
 
 		// easy to use wrapper for write()
-		template <typename Ret, typename Addr> 
-		void write(Addr const address, const Ret& value) const {
+		template <typename T, typename Addr> 
+		void write(Addr const address, const T& value) const {
 			this->write(address, &value, sizeof(value));
 		}
 

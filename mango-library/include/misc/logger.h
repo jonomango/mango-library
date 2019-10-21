@@ -16,6 +16,9 @@ namespace mango {
 		void set_info_channel(const LoggingChannel& channel) {
 			this->m_info_channel = channel;
 		}
+		void set_success_channel(const LoggingChannel& channel) {
+			this->m_success_channel = channel;
+		}
 		void set_error_channel(const LoggingChannel& channel) {
 			this->m_error_channel = channel;
 		}
@@ -23,6 +26,10 @@ namespace mango {
 		// info
 		template <typename ...Args>
 		void info(Args&& ...args) { this->dispatch(this->m_info_channel, std::forward<Args>(args)...); }
+
+		// success
+		template <typename ...Args>
+		void success(Args&& ...args) { this->dispatch(this->m_success_channel, std::forward<Args>(args)...); }
 
 		// error
 		template <typename ...Args>
@@ -43,6 +50,7 @@ namespace mango {
 
 	private:
 		LoggingChannel m_info_channel = nullptr, 
+			m_success_channel = nullptr,
 			m_error_channel = nullptr;
 	} inline logger;
 } // namespace mango
