@@ -176,8 +176,11 @@ void test_vmt_hooks(mango::Process& process) {
 	unit_test.expect_zero(vmt_hook.is_valid());
 }
 
-// full optimization on x86 seems to use direct calls to imported functions (not sure tho)
 void test_iat_hooks(mango::Process& process) {
+	// full optimization on x86 seems to use direct calls to imported functions (not sure tho)
+	if (sizeof(void*) == 4)
+		return;
+
 	mango::UnitTest unit_test("IatHook");
 
 	const auto hooked_func = static_cast<int(WINAPI*)()>([]() {

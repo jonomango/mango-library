@@ -18,7 +18,7 @@ namespace mango {
 		using ModuleAddressMap = std::unordered_map<std::string, uintptr_t>;
 
 		struct SetupOptions {
-			bool m_defer_module_loading = false;
+			bool m_defer_module_loading = true;
 		};
 
 	public:

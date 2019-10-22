@@ -5,11 +5,12 @@
 #include <unordered_map>
 #include <optional>
 
+#include "../misc/logger.h"
+
 
 namespace mango {
 	class Process;
 
-	// copying is allowed
 	class LoadedModule {
 	public:
 		struct PeEntry {
@@ -29,6 +30,7 @@ namespace mango {
 		LoadedModule() = default; // left in an invalid state
 		LoadedModule(const Process& process, const void* const address) { this->setup(process, address); }
 		LoadedModule(const Process& process, const uintptr_t address) { this->setup(process, address); }
+		LoadedModule(const LoadedModule& other) noexcept = default; // copying
 
 		// setup (parse the pe header mostly)
 		void setup(const Process& process, const uintptr_t address);

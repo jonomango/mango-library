@@ -6,6 +6,8 @@
 #include "../../include/epic/process.h"
 #include "../../include/misc/error_codes.h"
 
+#undef min
+
 
 namespace mango {
 	template <bool is64bit>
@@ -34,7 +36,7 @@ namespace mango {
 			nt_header.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress);
 
 		// iterate through each function in the export address table
-		for (uint32_t i = 0; i < min(ex_dir.NumberOfFunctions, ex_dir.NumberOfNames); i++) {
+		for (size_t i = 0; i < std::min(ex_dir.NumberOfFunctions, ex_dir.NumberOfNames); i++) {
 			const auto name_addr = process.read<uint32_t>(address +
 				ex_dir.AddressOfNames + (i * 4));
 
@@ -56,10 +58,10 @@ namespace mango {
 
 		const uint32_t iat_rva = nt_header.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
 		uint32_t num_entries = nt_header.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size / sizeof(IMAGE_IMPORT_DESCRIPTOR);
-		num_entries = min(num_entries - 1, num_entries);
+		num_entries = std::min(num_entries - 1, num_entries);
 
 		// iterate through each function in the import address table
-		for (uint32_t i = 0; i < num_entries; i++) {
+		for (size_t i = 0; i < num_entries; i++) {
 			const auto iat_entry = process.read<IMAGE_IMPORT_DESCRIPTOR>(address + iat_rva + (i * sizeof(IMAGE_IMPORT_DESCRIPTOR)));
 			if (iat_entry.Name >= loaded_module->m_image_size || iat_entry.OriginalFirstThunk >= loaded_module->m_image_size)
 				break;
@@ -73,7 +75,7 @@ namespace mango {
 			std::transform(std::begin(module_name), std::end(module_name), std::begin(module_name), std::tolower);
 
 			// iterate through each thunk
-			for (uint32_t j = 0; true; j += sizeof(image_thunk_data)) {
+			for (uintptr_t j = 0; true; j += sizeof(image_thunk_data)) {
 				const auto orig_thunk = process.read<image_thunk_data>(address + iat_entry.OriginalFirstThunk + j);
 				if (orig_thunk.u1.AddressOfData >= loaded_module->m_image_size)
 					break;

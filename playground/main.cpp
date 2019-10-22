@@ -58,36 +58,6 @@ int main() {
 		process_options.m_defer_module_loading = true;
 
 		mango::Process process(GetCurrentProcessId(), process_options);
-
-		class ExampleClass {
-		public:
-			virtual void example_func() {
-				mango::logger.info("example_func()");
-			}
-		};
-
-		const auto hooked_func = static_cast<void(__thiscall*)(void*)>([](void*) {
-			mango::logger.info("hooked_func()");
-		});
-
-		const auto example_a = std::make_unique<ExampleClass>();
-		const auto example_b = std::make_unique<ExampleClass>();
-
-		mango::logger.info("A before: ", std::hex, process.read<uintptr_t>(example_a.get()));
-		mango::logger.info("B before: ", std::hex, process.read<uintptr_t>(example_b.get()));
-
-		mango::VmtHook::SetupOptions vmt_options;
-		vmt_options.m_replace_table = true;
-	
-		mango::VmtHook vmt_hook(process, example_a.get(), vmt_options);
-		vmt_hook.hook(0, hooked_func);
-
-		mango::logger.info("A after: ", std::hex, process.read<uintptr_t>(example_a.get()));
-		mango::logger.info("B after: ", std::hex, process.read<uintptr_t>(example_b.get()));
-
-		example_a->example_func();
-		example_b->example_func();
-		
 	} catch (mango::MangoError& e) {
 		mango::logger.error(e.what());
 	}

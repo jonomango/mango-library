@@ -32,18 +32,18 @@ namespace mango {
 				try {
 					// keep increasing m_vtable_size until nullptr
 					if (process.is_64bit()) {
-						while (process.read<uint64_t>(this->m_original_vtable + this->m_vtable_size + 0x8))
+						while (process.read<uint64_t>(this->m_original_vtable + this->m_vtable_size))
 							this->m_vtable_size += 0x8;
 					} else {
-						while (process.read<uint32_t>(this->m_original_vtable + this->m_vtable_size + 0x4))
+						while (process.read<uint32_t>(this->m_original_vtable + this->m_vtable_size))
 							this->m_vtable_size += 0x4;
 					}
 				} catch (FailedToReadMemory&) {}
 			}
 
+			// if it's 0 then its not a virtual class lmao
 			if (!this->m_vtable_size)
 				throw InvalidVtableSize();
-			mango::logger.info("num vfuncs: ", this->m_vtable_size / process.get_ptr_size());
 
 			// allocate a new vtable
 			this->m_vtable = process.alloc_virt_mem(this->m_vtable_size);
