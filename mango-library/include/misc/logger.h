@@ -7,7 +7,7 @@
 
 namespace mango {
 	// the data is passed in the std::stringstream
-	using LoggingChannel = void(*)(std::stringstream&&);
+	using LoggingChannel = void(*)(std::ostringstream&&);
 
 	// logging class for debugging and stuff (can be used to output to console or a file or whatever)
 	class Logger {
@@ -43,7 +43,7 @@ namespace mango {
 				return;
 
 			// create a stringstream with the data
-			std::stringstream ss;
+			std::ostringstream ss;
 			(ss << ... << args);
 			channel(std::move(ss));
 		}

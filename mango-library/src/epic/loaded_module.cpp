@@ -15,7 +15,7 @@ namespace mango {
 		// architecture dependent types
 		using image_nt_headers = typename std::conditional<is64bit, IMAGE_NT_HEADERS64, IMAGE_NT_HEADERS32>::type;
 		using image_optional_header = typename std::conditional<is64bit, IMAGE_OPTIONAL_HEADER64, IMAGE_OPTIONAL_HEADER32>::type;
-		using image_thunk_data = typename std::conditional<is64bit, IMAGE_THUNK_DATA64, IMAGE_THUNK_DATA32>::type;
+		using image_thunk_data = typename std::conditional<is64bit, uint64_t, uint32_t>::type;
 
 		const auto dos_header = process.read<IMAGE_DOS_HEADER>(address);
 		const auto nt_header = process.read<image_nt_headers>(address + dos_header.e_lfanew);
@@ -37,8 +37,7 @@ namespace mango {
 
 		// iterate through each function in the export address table
 		for (size_t i = 0; i < std::min(ex_dir.NumberOfFunctions, ex_dir.NumberOfNames); i++) {
-			const auto name_addr = process.read<uint32_t>(address +
-				ex_dir.AddressOfNames + (i * 4));
+			const auto name_addr = process.read<uint32_t>(address + ex_dir.AddressOfNames + (i * 4));
 
 			// get the function name
 			char name[256];
@@ -56,39 +55,52 @@ namespace mango {
 			loaded_module->m_exported_funcs[name] = LoadedModule::PeEntry({ addr, table_addr });
 		}
 
-		const uint32_t iat_rva = nt_header.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
-		uint32_t num_entries = nt_header.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size / sizeof(IMAGE_IMPORT_DESCRIPTOR);
-		num_entries = std::min(num_entries - 1, num_entries);
+		const auto imports_directory = nt_header.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
+		const auto iat_directory = nt_header.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IAT];
+
+		// read all at once
+		const auto imports_directory_data = std::make_unique<uint8_t[]>(imports_directory.Size);
+		process.read(address + imports_directory.VirtualAddress, imports_directory_data.get(), imports_directory.Size);
+
+		// read all at once
+		const auto iat_directory_data = std::make_unique<uint8_t[]>(iat_directory.Size);
+		process.read(address + iat_directory.VirtualAddress, iat_directory_data.get(), iat_directory.Size);
 
 		// iterate through each function in the import address table
-		for (size_t i = 0; i < num_entries; i++) {
-			const auto iat_entry = process.read<IMAGE_IMPORT_DESCRIPTOR>(address + iat_rva + (i * sizeof(IMAGE_IMPORT_DESCRIPTOR)));
-			if (iat_entry.Name >= loaded_module->m_image_size || iat_entry.OriginalFirstThunk >= loaded_module->m_image_size)
+		for (uintptr_t i = 0; i < imports_directory.Size; i += sizeof(IMAGE_IMPORT_DESCRIPTOR)) {
+			const auto iat_entry = reinterpret_cast<IMAGE_IMPORT_DESCRIPTOR*>(&imports_directory_data[i]);
+			if (!iat_entry->OriginalFirstThunk)
 				break;
 
 			// ex. KERNEL32.DLL
 			char module_name[256];
-			process.read(address + iat_entry.Name, module_name, 256);
+			process.read(address + iat_entry->Name, module_name, 256);
 			module_name[255] = '\0';
 
 			// change to lowercase
 			std::transform(std::begin(module_name), std::end(module_name), std::begin(module_name), std::tolower);
 
-			// iterate through each thunk
-			for (uintptr_t j = 0; true; j += sizeof(image_thunk_data)) {
-				const auto orig_thunk = process.read<image_thunk_data>(address + iat_entry.OriginalFirstThunk + j);
-				if (orig_thunk.u1.AddressOfData >= loaded_module->m_image_size)
-					break;
+			// we fill this with entries
+			auto& imported_funcs = loaded_module->m_imported_funcs[module_name];
 
-				// orig_thunk.u1.AddressOfData + 2 == IMAGE_IMPORT_BY_NAME::Name
+			// iterate through each thunk
+			for (uintptr_t j = 0;; j += sizeof(image_thunk_data)) {
+				const auto orig_thunk = process.read<image_thunk_data>(address + iat_entry->OriginalFirstThunk + j);
+				if (!orig_thunk || orig_thunk > loaded_module->m_image_size)
+					break;
+			
+				const auto thunk = reinterpret_cast<image_thunk_data*>(
+					&iat_directory_data[iat_entry->FirstThunk + j - iat_directory.VirtualAddress]);
+
+				// IMAGE_IMPORT_BY_NAME::Name
 				char func_name[256];
-				process.read(address + uintptr_t(orig_thunk.u1.AddressOfData) + 2, func_name, 256);
+				process.read(address + uintptr_t(orig_thunk) + 2, func_name, 256);
 				func_name[255] = '\0';
 
-				const auto thunk = process.read<image_thunk_data>(address + iat_entry.FirstThunk + j);
-				loaded_module->m_imported_funcs[module_name][func_name] = LoadedModule::PeEntry({
-					uintptr_t(thunk.u1.Function), 
-					address + iat_entry.FirstThunk + j 
+				// cache the data
+				imported_funcs[func_name] = LoadedModule::PeEntry({
+					uintptr_t(*thunk), 
+					address + iat_entry->FirstThunk + j
 				});
 			}
 		}

@@ -10,6 +10,8 @@
 #include <misc/unit_test.h>
 #include <misc/error_codes.h>
 
+#include <crypto/encrypted_string.h>
+
 #include <Psapi.h>
 
 
@@ -294,6 +296,12 @@ void test_shellcode(mango::Process& process) {
 	shellcode.free(process, data);
 }
 
+void test_misc(mango::Process& process) {
+	mango::UnitTest unit_test("Misc");
+
+	unit_test.expect_value(encrypt_string("testString12345"), "testString12345");
+}
+
 // unit test everything
 void run_unit_tests() {
 	try {
@@ -302,6 +310,7 @@ void run_unit_tests() {
 		test_vmt_hooks(process);
 		test_iat_hooks(process);
 		test_shellcode(process);
+		test_misc(process);
 	} catch (mango::MangoError& e) {
 		mango::logger.error("Exception caught: ", e.what());
 	}

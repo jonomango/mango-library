@@ -119,4 +119,12 @@ namespace mango {
 		stream << L" ]";
 		return stream;
 	}
+
+	using vec2f = Vector<float, 2>;
+	using vec3f = Vector<float, 3>;
+	using vec4f = Vector<float, 4>;
+
+	using vec2i = Vector<int, 2>;
+	using vec3i = Vector<int, 3>;
+	using vec4i = Vector<int, 4>;
 } // namespace mango
