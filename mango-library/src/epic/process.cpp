@@ -107,7 +107,7 @@ namespace mango {
 
 	// uses shellcode to call GetProcAddress() in the remote process
 	uintptr_t Process::get_proc_addr(const uintptr_t hmodule, const std::string& func_name) const {
-		const auto func_addr = this->get_proc_addr("kernel32.dll", "GetProcAddress");
+		const auto func_addr = this->get_proc_addr(enc_str("kernel32.dll"), enc_str("GetProcAddress"));
 		if (!func_addr)
 			throw FailedToGetFunctionAddress();
 
@@ -159,7 +159,7 @@ namespace mango {
 	// get the PEB structure
 	PEB Process::get_peb() const {
 		static const auto NtQueryInformationProcess = NtQueryInformationProcessFn(
-			GetProcAddress(GetModuleHandle("ntdll.dll"), "NtQueryInformationProcess"));
+			GetProcAddress(GetModuleHandle(enc_str("ntdll.dll").c_str()), enc_str("NtQueryInformationProcess").c_str()));
 
 		// get address of the peb structure
 		PROCESS_BASIC_INFORMATION process_info;

@@ -10,7 +10,7 @@
 #undef min
 
 // kinda sucks that we have to use a macro but whatever
-#define encrypt_string(str)\
+#define enc_str(str)\
 (([]() {\
 	constexpr auto _encrypted = mango::_EncryptedString(str);\
 	return _encrypted();\

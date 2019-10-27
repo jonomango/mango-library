@@ -2,14 +2,19 @@
 
 #include <exception>
 
+#include "../crypto/string_encryption.h"
+
 
 // can't really do this without a macro, oh well
 #define mango_create_error(name, value)\
 class name : public mango::MangoError {\
 public:\
+	name() noexcept : m_value(enc_str(value)) {}\
 	virtual const char* what() const noexcept override {\
-		return value;\
+		return this->m_value.c_str();\
 	}\
+private:\
+	const std::string m_value;\
 };
 
 namespace mango {

@@ -39,6 +39,9 @@
     <ClCompile Include="src\epic\loaded_module.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\epic\syscalls.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\epic\shellcode.h">
@@ -71,9 +74,6 @@
     <ClInclude Include="include\misc\windows_defs.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\crypto\encrypted_string.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="include\crypto\compile_time_key.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -92,5 +92,16 @@
     <ClInclude Include="include\epic\loaded_module.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\crypto\string_encryption.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\epic\syscalls.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="asm\syscall-x64.asm">
+      <Filter>Source Files</Filter>
+    </MASM>
   </ItemGroup>
 </Project>

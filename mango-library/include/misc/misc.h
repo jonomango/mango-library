@@ -7,7 +7,7 @@
 namespace mango {
 	// template thingy poopoos must be compile time constants
 	template <typename T, T Value>
-	constexpr T force_compile_time() {
+	constexpr T compile_time() {
 		return Value;
 	}
 

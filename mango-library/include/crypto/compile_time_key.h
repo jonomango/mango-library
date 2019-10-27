@@ -1,5 +1,6 @@
 #pragma once
 
+#include <limits>
 #include <stdint.h>
 
 // windows :nauseated_face: 

@@ -10,9 +10,10 @@
 #include <misc/unit_test.h>
 #include <misc/error_codes.h>
 
-#include <crypto/encrypted_string.h>
+#include <crypto/string_encryption.h>
 
 #include <Psapi.h>
+#include <string>
 
 
 void test_process(mango::Process& process) {
@@ -299,7 +300,10 @@ void test_shellcode(mango::Process& process) {
 void test_misc(mango::Process& process) {
 	mango::UnitTest unit_test("Misc");
 
-	unit_test.expect_value(encrypt_string("testString12345"), "testString12345");
+	using namespace std::string_literals;
+
+	unit_test.expect_value(enc_str("testString12345"), "testString12345");
+	unit_test.expect_value(enc_str("\x00hello world!"), "\x00hello world!"s);
 }
 
 // unit test everything
