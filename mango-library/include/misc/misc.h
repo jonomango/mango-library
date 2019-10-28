@@ -22,6 +22,9 @@ namespace mango {
 				this->m_size = strlen(str);
 		}
 
+		template <typename T>
+		constexpr StringWrapper(T&& str, const size_t size) : m_str(str), m_size(size) {}
+
 		// getters
 		constexpr const char* get_str() const { return this->m_str; }
 		constexpr size_t get_size() const { return this->m_size; }

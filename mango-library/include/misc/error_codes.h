@@ -9,16 +9,23 @@
 #define mango_create_error(name, value)\
 class name : public mango::MangoError {\
 public:\
-	name() noexcept : m_value(enc_str(value)) {}\
-	virtual const char* what() const noexcept override {\
-		return this->m_value.c_str();\
-	}\
-private:\
-	const std::string m_value;\
+	name() : mango::MangoError(enc_str(value)) {}\
 };
 
 namespace mango {
-	class MangoError : public std::exception {};
+	// base class of all mango-library exception
+	class MangoError : public std::exception {
+	public:
+		MangoError(const std::string& str) : m_value(str) {}
+		const char* what() const noexcept override {
+			return this->m_value.c_str();
+		}
+
+	protected:
+		const std::string m_value;
+	};
+
+	mango_create_error(NotWow64Process, "Process is not running under WOW64");
 
 	mango_create_error(FunctionAlreadyHooked, "Function is already hooked.");
 
@@ -44,4 +51,5 @@ namespace mango {
 	mango_create_error(FailedToFindImportFunction, "Failed to find imported function in IAT.");
 	mango_create_error(FailedToResolveImport, "Failed to resolve import when manually mapping image.");
 	mango_create_error(FailedToReadFile, "Failed to read file.");
+	mango_create_error(FailedToVerifyX64Transition, "Failed to verify against Wowx64Transition address.");
 } // namespace mango

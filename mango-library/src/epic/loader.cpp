@@ -103,7 +103,7 @@ namespace mango {
 			const auto entry_point = module_base + nt_header->OptionalHeader.AddressOfEntryPoint;
 
 			if constexpr (is64bit) {
-				const auto shellcode_addr = Shellcode(
+				Shellcode(
 					"\x48\x83\xEC\x20", // sub rsp, 0x20
 					"\x49\xB8", uint64_t(0), // movabs r8, 0
 					"\xBA", uint32_t(DLL_PROCESS_ATTACH), // mov edx, DLL_PROCESS_ATTACH
@@ -111,10 +111,8 @@ namespace mango {
 					"\x48\xB8", uint64_t(entry_point), // movabs rax, entry_point
 					"\xFF\xD0", // call rax
 					"\x48\x83\xC4\x20", // add rsp, 0x20
-					"\xC3" // ret
-				).allocate(process);
-
-				process.create_remote_thread(shellcode_addr);
+					Shellcode::ret()
+				).execute(process);
 			} else {
 				Shellcode(
 					"\x68", uint32_t(0), // push 0
@@ -122,7 +120,7 @@ namespace mango {
 					"\x68", uint32_t(module_base), // push module_base
 					"\xB8", uint32_t(entry_point), // mov eax, entry_point
 					"\xFF\xD0", // call eax
-					"\xC3" // ret
+					Shellcode::ret()
 				).execute(process);
 			}
 		}
@@ -162,7 +160,7 @@ namespace mango {
 				"\x48\xA3", ret_address, // movabs [ret_address], rax
 				"\x48\x83\xC4\x20", // add rsp, 0x20
 				"\x31\xC0", // xor eax, eax
-				"\xC3" // ret
+				Shellcode::ret()
 			).execute(process);
 
 			// the HMODULE returned by LoadLibrary
@@ -173,7 +171,7 @@ namespace mango {
 				"\xB8", uint32_t(func_addr), // mov eax, func_addr
 				"\xFF\xD0", // call eax
 				"\xA3", uint32_t(ret_address), // mov [ret_address], eax
-				"\xC3" // ret
+				Shellcode::ret()
 			).execute(process);
 
 			// the HMODULE returned by LoadLibrary

@@ -42,6 +42,9 @@
     <ClCompile Include="src\epic\syscalls.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\epic\syscall_hook.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\epic\shellcode.h">
@@ -96,6 +99,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\epic\syscalls.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\epic\syscall_hook.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

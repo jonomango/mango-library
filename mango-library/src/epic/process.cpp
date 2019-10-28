@@ -5,6 +5,7 @@
 #include <Psapi.h>
 
 #include "../../include/epic/shellcode.h"
+#include "../../include/epic/syscalls.h"
 
 #include "../../include/misc/windows_defs.h"
 #include "../../include/misc/error_codes.h"
@@ -15,6 +16,10 @@ namespace mango {
 	// initialization
 	void Process::setup(const uint32_t pid, const SetupOptions& options) {
 		this->release();
+
+		// for syscalls
+		if (!mango::verify_x64transition())
+			throw FailedToVerifyX64Transition();
 
 		// open a handle to the process
 		this->m_handle = OpenProcess(

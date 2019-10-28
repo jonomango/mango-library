@@ -4,6 +4,7 @@
 #include <epic/shellcode.h>
 #include <epic/vmt_hook.h>
 #include <epic/syscalls.h>
+#include <epic/syscall_hook.h>
 #include <misc/vector.h>
 #include <misc/logger.h>
 #include <misc/error_codes.h>
@@ -13,6 +14,7 @@
 
 #include <Psapi.h>
 #include <functional>
+#include <intrin.h>
 
 #include "unit_tests.h"
 
@@ -58,6 +60,18 @@ NTSTATUS read_virtual_memory(const mango::Process& process, const void* const ad
 	return mango::syscall<NTSTATUS>(index, process.get_handle(), address, buffer, size, nullptr);
 }
 
+void syscall_hook(uint32_t syscall_index, uint32_t* stack) {
+	static bool ignore_syscalls = false;
+	if (ignore_syscalls)
+		return;
+
+	ignore_syscalls = true; {
+		if (syscall_index == 63) {
+			mango::logger.info("NtReadProcessMemory called.");
+		}
+	} ignore_syscalls = false;
+}
+
 int main() {
 	setup_logger();
 
@@ -68,23 +82,21 @@ int main() {
 	try {
 		mango::Process process(GetCurrentProcessId());
 
-		int value_one = 69, value_two = 420;
-		read_virtual_memory(process, &value_one, &value_two, sizeof(value_one));
+		mango::Wow64SyscallHook::SetupOptions options;
+		options.m_auto_release = false;
+		
+		mango::Wow64SyscallHook hook(process, syscall_hook, options);
+
+		int value_one = 0x69, value_two = 0x420;
+		ReadProcessMemory(process.get_handle(), &value_one, &value_two, 4, nullptr);
 		mango::logger.info(value_two);
+		
 	} catch (mango::MangoError& e) {
+		mango::logger.error(e.what());
+	} catch (std::exception& e) {
 		mango::logger.error(e.what());
 	}
 
 	getchar();
 	return 0;
 }
-
-//BOOL WINAPI DllMain(
-//	_In_ HINSTANCE hinstDLL,
-//	_In_ DWORD     fdwReason,
-//	_In_ LPVOID    lpvReserved
-//) {
-//	if (fdwReason == DLL_PROCESS_ATTACH)
-//		std::cout << "Hello world!" << std::endl;
-//	return TRUE;
-//}
