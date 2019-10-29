@@ -91,9 +91,6 @@ void test_process(mango::Process& process) {
 
 		return did_thread_run;
 	});
-
-	// reading the peb structure
-	unit_test.expect_value(IsDebuggerPresent(), process.get_peb().BeingDebugged);
 }
 
 void test_vmt_hooks(mango::Process& process) {

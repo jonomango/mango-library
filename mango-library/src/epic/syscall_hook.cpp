@@ -7,7 +7,7 @@
 
 namespace mango {
 	// hooks
-	void Wow64SyscallHook::hook(const Process& process, const uint32_t pre_callback, const SetupOptions& options) {
+	void Wow64SyscallHook::hook(const Process& process, const uint32_t callback, const SetupOptions& options) {
 		this->release();
 
 		// only works for wow64 processes obviously...
@@ -32,7 +32,7 @@ namespace mango {
 		this->m_original = process.read<uint32_t>(this->wow64_transition);
 
 		// build the hook stub
-		this->build_shellcode(uint32_t(pre_callback));
+		this->build_shellcode(callback);
 
 		// hook
 		process.write<uint32_t>(this->wow64_transition, this->m_shellcode_addr);
@@ -60,23 +60,36 @@ namespace mango {
 	}
 
 	// builds the function stub
-	void Wow64SyscallHook::build_shellcode(const uint32_t address) {
-		this->m_shellcode_addr = Shellcode(
+	void Wow64SyscallHook::build_shellcode(const uint32_t callback) {
+		this->m_shellcode_addr = uint32_t(Shellcode(
+			// store the syscall index
+			"\x50", // push eax
+
+			// push arguments to our callback
+			"\x68\x00\x00\x00\x00", // push 0x00000000
+			"\x54", // push esp
+			"\x80\x04\x24\x10", // add byte ptr [esp], 10h
 			"\x50", // push eax
 
 			// call our callback
-			"\x54", // push esp
-			"\x80\x04\x24\x0C", // add byte ptr [esp], 0Ch
-			"\x50", // push eax
-			"\xBA", address, // mov edx, address
+			"\xBA", callback, // mov edx, callback
 			"\xFF\xD2", // call edx
-			"\x83\xC4\x08", // add esp, 8
+			"\x83\xC4\x08", // add esp, 0x8
+			"\x5A", // pop edx
+
+			// dont call original if returned false
+			//"\xCC",
+			"\x3C\x00", // cmp al, 0
+			"\x0F\x85\x04\x00\x00\x00", // jne 4
+			"\x89\xD0", // mov eax, edx
+			"\x5A", // pop edx (for the syscall)
+			Shellcode::ret(),
 
 			// call the original
-			"\x58", // pop eax
+			"\x58", // pop eax (for the syscall)
 			"\xBA", this->m_original, // mov edx, m_original
 			"\xFF\xE2" // jmp edx
 
-		).allocate(*this->m_process);
+		).allocate(*this->m_process));
 	}
 } // namespace mango

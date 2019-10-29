@@ -6,8 +6,8 @@
 
 #include "../../include/epic/shellcode.h"
 #include "../../include/epic/syscalls.h"
+#include "../../include/epic/windows_funcs.h"
 
-#include "../../include/misc/windows_defs.h"
 #include "../../include/misc/error_codes.h"
 #include "../../include/misc/logger.h"
 
@@ -161,26 +161,12 @@ namespace mango {
 		return ret_value;
 	}
 
-	// get the PEB structure
-	PEB Process::get_peb() const {
-		static const auto NtQueryInformationProcess = NtQueryInformationProcessFn(
-			GetProcAddress(GetModuleHandle(enc_str("ntdll.dll").c_str()), enc_str("NtQueryInformationProcess").c_str()));
-
-		// get address of the peb structure
-		PROCESS_BASIC_INFORMATION process_info;
-		if (DWORD tmp = 0; NtQueryInformationProcess(this->m_handle, ProcessBasicInformation, &process_info, sizeof(process_info), &tmp))
-			throw FailedToQueryProcessInformation();
-
-		// read
-		return this->read<PEB>(process_info.PebBaseAddress);
-	}
-
 	// read from a memory address
 	void Process::read(const void* const address, void* const buffer, const size_t size) const {
 		if (this->is_self()) {
 			if (memcpy_s(buffer, size, address, size))
 				throw FailedToReadMemory();
-		} else if (!ReadProcessMemory(this->m_handle, address, buffer, size, nullptr))
+		} else if (!NT_SUCCESS(NtReadVirtualMemory(this->m_handle, address, buffer, size, nullptr)))
 			throw FailedToReadMemory();
 	}
 
@@ -189,20 +175,22 @@ namespace mango {
 		if (this->is_self()) {
 			if (memcpy_s(address, size, buffer, size))
 				throw FailedToWriteMemory();
-		} else if (!WriteProcessMemory(this->m_handle, address, buffer, size, nullptr))
+		} else if (!NT_SUCCESS(NtWriteVirtualMemory(this->m_handle, address, buffer, size, nullptr)))
 			throw FailedToWriteMemory();
 	}
 
 	// allocate virtual memory in the process (wrapper for VirtualAllocEx)
 	uintptr_t Process::alloc_virt_mem(const size_t size, const uint32_t protection, const uint32_t type) const {
-		if (const auto ret = VirtualAllocEx(this->m_handle, nullptr, size, type, protection); ret)
-			return uintptr_t(ret);
-		throw FailedToAllocateVirtualMemory();
+		void* address = nullptr; SIZE_T region_size = size;
+		if (!NT_SUCCESS(NtAllocateVirtualMemory(this->m_handle, &address, 0, &region_size, type, protection)))
+			throw FailedToAllocateVirtualMemory();
+		return uintptr_t(address);
 	}
 
 	// free virtual memory in the process (wrapper for VirtualFreeEx)
 	void Process::free_virt_mem(void* const address, const size_t size, const uint32_t type) const {
-		if (!VirtualFreeEx(this->m_handle, address, size, type))
+		void* base_address = address; SIZE_T region_size = size;
+		if (!NT_SUCCESS(NtFreeVirtualMemory(this->m_handle, &base_address, &region_size, type)))
 			throw FailedToFreeVirtualMemory();
 	}
 

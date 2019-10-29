@@ -43,18 +43,9 @@ namespace mango {
 	// but adapted to also work with WOW64 processes
 	template <typename Ret = void*, typename ...Args>
 	Ret syscall(const uint32_t index, const Args ...args) {
-		// cant use "if constexpr" cuz of __asm
-#ifdef _WIN64
-		return _syscall64<Ret>(index, args...);
-#else 
-		// this is the part that calls the syscall stub
-		const auto ret = (reinterpret_cast<Ret(__stdcall*)(uint32_t, Args...)>(&_syscall_stub))(index, args...);
-
-		// callee cleans up stack in __stdcall (which we cant dynamically do in the stub)
-		constexpr auto size_of_args = (0 + ... + sizeof(Args));
-		__asm add esp, size_of_args
-
-		return ret;
-#endif
+		if constexpr (sizeof(void*) == 8)
+			return _syscall64<Ret>(index, args...);
+		else
+			return (reinterpret_cast<Ret(*)(uint32_t, Args...)>(&_syscall_stub))(index, args...);
 	}
 } // namespace mango

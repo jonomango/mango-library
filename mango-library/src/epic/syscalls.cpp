@@ -9,7 +9,7 @@
 namespace mango {
 	// same as ntdll.dll:Wow64Transition
 	// might only work for windows 10 but can easily be fixed
-	inline constexpr uint64_t x64_transition = 0x00000033'77796009;
+	static constexpr uint64_t x64_transition = 0x00000033'77796009;
 
 	// dynamically get the sycall index of a function in ntdll.dll
 	uint32_t syscall_index(const std::string& func_name) {
@@ -31,17 +31,19 @@ namespace mango {
 	uint32_t get_x64transition() {
 		if constexpr (sizeof(void*) == 8)
 			return 0;
-
-		const auto address = GetProcAddress(GetModuleHandle(
-			enc_str("ntdll.dll").c_str()), enc_str("Wow64Transition").c_str());
-		return *reinterpret_cast<uint32_t*>(address);
+		else {
+			const auto address = GetProcAddress(GetModuleHandle(
+				enc_str("ntdll.dll").c_str()), enc_str("Wow64Transition").c_str());
+			return *reinterpret_cast<uint32_t*>(address);
+		}
 	}
 
 	// verify that our hardcoded transition address is correct
 	bool verify_x64transition() {
 		if constexpr (sizeof(void*) == 8)
 			return true;
-		return get_x64transition() + 9 == uint32_t(x64_transition);
+		else
+			return get_x64transition() + 9 == uint32_t(x64_transition);
 	}
 
 #ifndef _WIN64
@@ -55,9 +57,9 @@ namespace mango {
 		__asm {
 			pop edx   // pop the return address into edx
 			pop eax   // pop the syscall index into eax
-			push edx  // push the return address back on the stack,
+			push edx  // push the return address back on the stack
 
-			// x64_address is a function but we jmp to it, so manually push the return address again
+			// manually push the return address
 			push edx
 			jmp fword ptr x64_transition
 		}

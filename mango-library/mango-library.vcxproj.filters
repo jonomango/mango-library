@@ -45,6 +45,9 @@
     <ClCompile Include="src\epic\syscall_hook.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\epic\windows_funcs.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\epic\shellcode.h">
@@ -74,9 +77,6 @@
     <ClInclude Include="include\misc\unit_test.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\misc\windows_defs.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="include\crypto\compile_time_key.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -102,6 +102,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\epic\syscall_hook.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\epic\windows_funcs.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

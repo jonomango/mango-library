@@ -8,13 +8,8 @@
 #include <misc/vector.h>
 #include <misc/logger.h>
 #include <misc/error_codes.h>
-#include <misc/windows_defs.h>
 #include <crypto/string_encryption.h>
 #include <crypto/fnv_hash.h>
-
-#include <Psapi.h>
-#include <functional>
-#include <intrin.h>
 
 #include "unit_tests.h"
 
@@ -55,41 +50,18 @@ void setup_logger() {
 	mango::logger.success("Logging channels initialized.");
 }
 
-NTSTATUS read_virtual_memory(const mango::Process& process, const void* const address, void* const buffer, const size_t size) {
-	static const auto index = mango::syscall_index(enc_str("NtReadVirtualMemory"));
-	return mango::syscall<NTSTATUS>(index, process.get_handle(), address, buffer, size, nullptr);
-}
-
-void syscall_hook(uint32_t syscall_index, uint32_t* stack) {
-	static bool ignore_syscalls = false;
-	if (ignore_syscalls)
-		return;
-
-	ignore_syscalls = true; {
-		if (syscall_index == 63) {
-			mango::logger.info("NtReadProcessMemory called.");
-		}
-	} ignore_syscalls = false;
-}
-
 int main() {
 	setup_logger();
 
 	// in case we broke some shit
 	run_unit_tests();
 
-	// mango::Process constructor should always be wrapped in a try-catch block
+	// catch any exceptions
 	try {
-		mango::Process process(GetCurrentProcessId());
-
-		mango::Wow64SyscallHook::SetupOptions options;
-		options.m_auto_release = false;
+		const auto process = mango::Process::current();
 		
-		mango::Wow64SyscallHook hook(process, syscall_hook, options);
+		process.free_virt_mem(process.alloc_virt_mem(4));
 
-		int value_one = 0x69, value_two = 0x420;
-		ReadProcessMemory(process.get_handle(), &value_one, &value_two, 4, nullptr);
-		mango::logger.info(value_two);
 		
 	} catch (mango::MangoError& e) {
 		mango::logger.error(e.what());
@@ -97,6 +69,7 @@ int main() {
 		mango::logger.error(e.what());
 	}
 
+	mango::logger.info("program end");
 	getchar();
 	return 0;
 }

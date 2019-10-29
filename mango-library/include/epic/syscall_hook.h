@@ -10,7 +10,8 @@ namespace mango {
 	// Syscall hooks for Wow64 processes
 	class Wow64SyscallHook {
 	public:
-		using PreCallback = void(*)(uint32_t index, uint32_t* stack);
+		// return false to not call the original syscall
+		using Callback = bool(*)(const uint32_t syscall_index, uint32_t* const arguments, volatile uint32_t return_value);
 
 		struct SetupOptions {
 			// whether we should call release in the constructor or not
@@ -19,11 +20,8 @@ namespace mango {
 
 	public:
 		Wow64SyscallHook() = default;
-		Wow64SyscallHook(const Process& process, const uint32_t pre_callback, const SetupOptions& options = SetupOptions()) {
-			this->hook(process, pre_callback, options); 
-		}
-		Wow64SyscallHook(const Process& process, const void* const pre_callback, const SetupOptions& options = SetupOptions()) {
-			this->hook(process, pre_callback, options);
+		Wow64SyscallHook(const Process& process, const uint32_t callback, const SetupOptions& options = SetupOptions()) {
+			this->hook(process, callback, options); 
 		}
 
 		// calls release()
@@ -33,17 +31,14 @@ namespace mango {
 		}
 
 		// hooks
-		void hook(const Process& process, const uint32_t pre_callback, const SetupOptions& options = SetupOptions());
-		void hook(const Process& process, const void* const pre_callback, const SetupOptions& options = SetupOptions()) {
-			this->hook(process, uint32_t(pre_callback), options);
-		}
+		void hook(const Process& process, const uint32_t callback, const SetupOptions& options = SetupOptions());
 
 		// unhooks
 		void release();
 
 	private:
 		// builds the function stub
-		void build_shellcode(const uint32_t address);
+		void build_shellcode(const uint32_t callback);
 
 	private:
 		const Process* m_process = nullptr;

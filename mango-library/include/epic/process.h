@@ -30,6 +30,11 @@ namespace mango {
 		// just calls release
 		~Process() noexcept { this->release(); }
 
+		// get the current process
+		static Process current(const SetupOptions& options = SetupOptions()) { 
+			return Process(GetCurrentProcessId(), options); 
+		}
+
 		// initialization
 		void setup(const uint32_t pid, const SetupOptions& options = SetupOptions());
 
@@ -72,9 +77,6 @@ namespace mango {
 
 		// uses shellcode to call GetProcAddress() in the remote process
 		uintptr_t get_proc_addr(const uintptr_t hmodule, const std::string& func_name) const;
-
-		// get the PEB structure
-		PEB get_peb() const;
 
 		// get the address of a virtual method in an instance
 		template <typename Ret, typename Addr>
@@ -137,6 +139,8 @@ namespace mango {
 		void create_remote_thread(const uintptr_t address) const { 
 			this->create_remote_thread(reinterpret_cast<void*>(address)); 
 		}
+
+		// wrapper over 
 
 		// updates the internal list of modules
 		void load_modules();

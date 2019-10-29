@@ -31,13 +31,13 @@
     <ClInclude Include="include\epic\vmt_hook.h" />
     <ClInclude Include="include\epic\loaded_module.h" />
     <ClInclude Include="include\epic\shellcode.h" />
+    <ClInclude Include="include\epic\windows_funcs.h" />
     <ClInclude Include="include\misc\color.h" />
     <ClInclude Include="include\misc\error_codes.h" />
     <ClInclude Include="include\misc\logger.h" />
     <ClInclude Include="include\misc\misc.h" />
     <ClInclude Include="include\misc\unit_test.h" />
     <ClInclude Include="include\misc\vector.h" />
-    <ClInclude Include="include\misc\windows_defs.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\epic\iat_hook.cpp" />
@@ -49,6 +49,7 @@
     <ClCompile Include="src\epic\loaded_module.cpp" />
     <ClCompile Include="src\epic\process.cpp" />
     <ClCompile Include="src\epic\shellcode.cpp" />
+    <ClCompile Include="src\epic\windows_funcs.cpp" />
     <ClCompile Include="src\misc\misc.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -177,6 +178,8 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <WholeProgramOptimization>false</WholeProgramOptimization>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <DebugInformationFormat>None</DebugInformationFormat>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -195,6 +198,8 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <WholeProgramOptimization>false</WholeProgramOptimization>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <DebugInformationFormat>None</DebugInformationFormat>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
