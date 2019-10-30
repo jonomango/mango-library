@@ -31,7 +31,7 @@
     <ClInclude Include="include\epic\vmt_hook.h" />
     <ClInclude Include="include\epic\loaded_module.h" />
     <ClInclude Include="include\epic\shellcode.h" />
-    <ClInclude Include="include\epic\windows_funcs.h" />
+    <ClInclude Include="include\epic\windows_defs.h" />
     <ClInclude Include="include\misc\color.h" />
     <ClInclude Include="include\misc\error_codes.h" />
     <ClInclude Include="include\misc\logger.h" />
@@ -49,7 +49,7 @@
     <ClCompile Include="src\epic\loaded_module.cpp" />
     <ClCompile Include="src\epic\process.cpp" />
     <ClCompile Include="src\epic\shellcode.cpp" />
-    <ClCompile Include="src\epic\windows_funcs.cpp" />
+    <ClCompile Include="src\epic\windows_defs.cpp" />
     <ClCompile Include="src\misc\misc.cpp" />
   </ItemGroup>
   <ItemGroup>

@@ -6,7 +6,7 @@
 
 #include "../../include/epic/shellcode.h"
 #include "../../include/epic/syscalls.h"
-#include "../../include/epic/windows_funcs.h"
+#include "../../include/epic/windows_defs.h"
 
 #include "../../include/misc/error_codes.h"
 #include "../../include/misc/logger.h"
@@ -195,26 +195,25 @@ namespace mango {
 	}
 
 	// get the protection of a page of memory
-	uint32_t Process::get_mem_prot(const void* const address) const {
-		if (MEMORY_BASIC_INFORMATION mbi; VirtualQueryEx(this->m_handle, address, &mbi, sizeof(mbi)))
-			return mbi.Protect;
-		throw FailedToQueryMemoryProtection();
+	uint32_t Process::get_mem_prot(void* const address) const {
+		MEMORY_BASIC_INFORMATION buffer;
+		if (!NT_SUCCESS(NtQueryVirtualMemory(this->m_handle, address, MEMORY_INFORMATION_CLASS::MemoryBasicInformation, &buffer, sizeof(buffer), nullptr)))
+			throw FailedToQueryMemoryProtection();
+		return buffer.Protect;
 	}
 
 	// set the protection, returns the old protection
-	uint32_t Process::set_mem_prot(void* const address, const size_t size, const uint32_t protection) const {
-		if (DWORD old_protection = 0; VirtualProtectEx(this->m_handle, address, size, protection, &old_protection))
-			return old_protection;
+	uint32_t Process::set_mem_prot(void* address, const size_t size, const uint32_t protection) const {
+		SIZE_T NumberOfBytesToProtect = size;
+		if (DWORD OldAccessProtection; NT_SUCCESS(NtProtectVirtualMemory(this->m_handle, &address, &NumberOfBytesToProtect, protection, &OldAccessProtection)))
+			return OldAccessProtection;
 		throw FailedToSetMemoryProtection();
 	}
 
 	// wrapper over CreateRemoteThread (will wait infinitely for the thread to finish)
-	void Process::create_remote_thread(const void* const address) const {
-		const auto thread_handle = CreateRemoteThread(this->m_handle, nullptr, 0,
-			LPTHREAD_START_ROUTINE(address), nullptr, 0, 0);
-
-		// rip
-		if (!thread_handle)
+	void Process::create_remote_thread(void* const address) const {
+		HANDLE thread_handle;
+		if (!NT_SUCCESS(NtCreateThreadEx(&thread_handle, 0x1FFFFF, nullptr, this->m_handle, address, nullptr, 0, 0, 0, 0, nullptr)))
 			throw FailedToCreateRemoteThread();
 
 		WaitForSingleObject(thread_handle, INFINITE);

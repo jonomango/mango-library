@@ -45,7 +45,7 @@
     <ClCompile Include="src\epic\syscall_hook.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\epic\windows_funcs.cpp">
+    <ClCompile Include="src\epic\windows_defs.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -104,7 +104,7 @@
     <ClInclude Include="include\epic\syscall_hook.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\epic\windows_funcs.h">
+    <ClInclude Include="include\epic\windows_defs.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

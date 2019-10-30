@@ -123,19 +123,19 @@ namespace mango {
 		}
 
 		// get the protection of a page of memory
-		uint32_t get_mem_prot(const void* const address) const;
+		uint32_t get_mem_prot(void* const address) const;
 		uint32_t get_mem_prot(const uintptr_t address) const {
 			return this->get_mem_prot(reinterpret_cast<void*>(address));
 		}
 
 		// set the protection, returns the old protection
-		uint32_t set_mem_prot(void* const address, const size_t size, const uint32_t protection) const;
+		uint32_t set_mem_prot(void* address, const size_t size, const uint32_t protection) const;
 		uint32_t set_mem_prot(const uintptr_t address, const size_t size, const uint32_t protection) const {
 			return this->set_mem_prot(reinterpret_cast<void*>(address), size, protection);
 		}
 
 		// wrapper over CreateRemoteThread (will wait infinitely for the thread to finish)
-		void create_remote_thread(const void* const address) const;
+		void create_remote_thread(void* const address) const;
 		void create_remote_thread(const uintptr_t address) const { 
 			this->create_remote_thread(reinterpret_cast<void*>(address)); 
 		}
