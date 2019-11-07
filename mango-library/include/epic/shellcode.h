@@ -31,14 +31,20 @@ namespace mango {
 
 		// execute the shellcode in the process, basically just calls
 		// Shellcode::allocate(), Process::create_remote_thread(), Shellcode::free()
-		void execute(const Process& process) const;
+		void execute(const Process& process, const uintptr_t argument = 0) const;
 
 		// reset
 		void clear() noexcept { this->m_data.clear(); }
 
+		// amount of bytes
+		size_t size() noexcept { return this->m_data.size(); }
+
 		// get the raw bytes
 		const ShellcodeData& get_data() const noexcept { return this->m_data; }
 		ShellcodeData& get_data() noexcept { return this->m_data; }
+
+		// push raw data, used by push()
+		Shellcode& push_raw(const void* const data, const size_t size);
 
 		// catch-all function
 		template <typename ...Args>

@@ -21,10 +21,21 @@ namespace mango {
 
 	// execute the shellcode in the process, basically just calls
 	// Shellcode::allocate(), Process::create_remote_thread(), Shellcode::free()
-	void Shellcode::execute(const Process& process) const {
+	void Shellcode::execute(const Process& process, const uintptr_t argument) const {
 		const auto address = this->allocate(process);
-		process.create_remote_thread(address);
+		process.create_remote_thread(address, argument);
 		this->free(process, address);
+	}
+
+	// push raw data, used by push()
+	Shellcode& Shellcode::push_raw(const void* const data, const size_t size) {
+		// resize
+		const auto old_size = this->m_data.size();
+		this->m_data.resize(this->m_data.size() + size);
+
+		// write
+		memcpy(this->m_data.data() + old_size, data, size);
+		return *this;
 	}
 
 	// lets you do stuff like std::cout << shellcode << std::endl;

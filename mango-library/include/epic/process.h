@@ -18,6 +18,7 @@ namespace mango {
 		using ModuleAddressMap = std::unordered_map<std::string, uintptr_t>;
 
 		struct SetupOptions {
+			// lazy loading, only load modules when they are requested
 			bool m_defer_module_loading = true;
 		};
 
@@ -135,9 +136,9 @@ namespace mango {
 		}
 
 		// wrapper over CreateRemoteThread (will wait infinitely for the thread to finish)
-		void create_remote_thread(void* const address) const;
-		void create_remote_thread(const uintptr_t address) const { 
-			this->create_remote_thread(reinterpret_cast<void*>(address)); 
+		void create_remote_thread(void* const address, void* const argument = nullptr) const;
+		void create_remote_thread(const uintptr_t address, const uintptr_t argument = 0) const {
+			this->create_remote_thread(reinterpret_cast<void*>(address), reinterpret_cast<void*>(argument));
 		}
 
 		// wrapper over 

@@ -211,9 +211,9 @@ namespace mango {
 	}
 
 	// wrapper over CreateRemoteThread (will wait infinitely for the thread to finish)
-	void Process::create_remote_thread(void* const address) const {
+	void Process::create_remote_thread(void* const address, void* const argument) const {
 		HANDLE thread_handle;
-		if (!NT_SUCCESS(NtCreateThreadEx(&thread_handle, 0x1FFFFF, nullptr, this->m_handle, address, nullptr, 0, 0, 0, 0, nullptr)))
+		if (!NT_SUCCESS(NtCreateThreadEx(&thread_handle, 0x1FFFFF, nullptr, this->m_handle, address, argument, 0, 0, 0, 0, nullptr)))
 			throw FailedToCreateRemoteThread();
 
 		WaitForSingleObject(thread_handle, INFINITE);

@@ -16,10 +16,6 @@ namespace mango {
 			// to note, if you don't replace the table you will be hooking the function for EVERY instance of the class
 			// while replacing the table will only hook for this specific instance.
 			bool m_replace_table = true;
-
-			// only used when m_replace_table = true 
-			// HIGHLY recommended to set this manually to avoid an unnecessarily large allocation
-			size_t m_vtable_size = 0; 
 		};
 
 	public:

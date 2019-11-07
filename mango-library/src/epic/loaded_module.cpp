@@ -84,7 +84,7 @@ namespace mango {
 			auto& imported_funcs = loaded_module->m_imported_funcs[module_name];
 
 			// iterate through each thunk
-			for (uintptr_t j = 0;; j += sizeof(image_thunk_data)) {
+			for (uintptr_t j = 0; true; j += sizeof(image_thunk_data)) {
 				const auto orig_thunk = process.read<image_thunk_data>(address + iat_entry->OriginalFirstThunk + j);
 				if (!orig_thunk || orig_thunk > loaded_module->m_image_size)
 					break;

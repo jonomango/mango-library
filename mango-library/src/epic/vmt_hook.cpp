@@ -24,22 +24,17 @@ namespace mango {
 		// else:
 		// just write directly to the current vtable
 		if (options.m_replace_table) {
-			this->m_vtable_size = options.m_vtable_size;
-
-			// user didn't provide vtable size, attempt to calculate it ourselves (not accurate)
-			if (!this->m_vtable_size) {
-				// try-catch block is in case we hit a bad page
-				try {
-					// keep increasing m_vtable_size until nullptr
-					if (process.is_64bit()) {
-						while (process.read<uint64_t>(this->m_original_vtable + this->m_vtable_size))
-							this->m_vtable_size += 0x8;
-					} else {
-						while (process.read<uint32_t>(this->m_original_vtable + this->m_vtable_size))
-							this->m_vtable_size += 0x4;
-					}
-				} catch (FailedToReadMemory&) {}
-			}
+			// attempt to calculate vtable size ourselves (not accurate)
+			try {
+				// keep increasing m_vtable_size until nullptr
+				if (process.is_64bit()) {
+					while (process.read<uint64_t>(this->m_original_vtable + this->m_vtable_size))
+						this->m_vtable_size += 0x8;
+				} else {
+					while (process.read<uint32_t>(this->m_original_vtable + this->m_vtable_size))
+						this->m_vtable_size += 0x4;
+				}
+			} catch (FailedToReadMemory&) {}
 
 			// if it's 0 then its not a virtual class lmao
 			if (!this->m_vtable_size)

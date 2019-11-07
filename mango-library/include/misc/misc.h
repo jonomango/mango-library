@@ -11,7 +11,21 @@ namespace mango {
 		return Value;
 	}
 
-	// seems pretty useless at first, but its needed for the automatic size deduction for strings
+	template <typename Callable, size_t... Is>
+	constexpr void _for_constexpr(Callable&& callable, const size_t start, const size_t inc, std::index_sequence<Is...>) {
+		(callable(start + (Is * inc)), ...);
+	}
+
+	// compile time for loop
+	// eg: for (size_t i = Start; i < End; i += Inc)
+	template <size_t Start, size_t End, size_t Inc, typename Callable>
+	constexpr void for_constexpr(Callable&& callable) {
+		constexpr auto count = (End - Start - 1) / Inc + 1;
+		if constexpr (count > 0)
+			_for_constexpr(std::forward<Callable>(callable), Start, Inc, std::make_index_sequence<count>());
+	}
+
+	// seems pretty useless at first, but its needed for the automatic size deduction for strings with null chars (ex: shellcode)
 	class StringWrapper {
 	public:
 		template <typename T>

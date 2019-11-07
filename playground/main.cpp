@@ -15,10 +15,7 @@
 
 // TODO:
 // std::source_location in exceptions when c++20 comes out
-// improve manual mapper (apischema + bug fix)
-// good wrapper for syscalls (maybe usermode hooks too?)
-// x64 code from x86 (and vise versa)
-
+// improve manual mapper (apischema)
 
 // setup logger channels
 void setup_logger() {
@@ -50,6 +47,7 @@ void setup_logger() {
 	mango::logger.success("Logging channels initialized.");
 }
 
+
 int main() {
 	setup_logger();
 
@@ -59,10 +57,6 @@ int main() {
 	// catch any exceptions
 	try {
 		const auto process = mango::Process::current();
-		
-		process.free_virt_mem(process.alloc_virt_mem(4));
-
-		
 	} catch (mango::MangoError& e) {
 		mango::logger.error(e.what());
 	} catch (std::exception& e) {

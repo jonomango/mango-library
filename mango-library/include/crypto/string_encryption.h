@@ -5,6 +5,7 @@
 #include <algorithm>
 
 #include "compile_time_key.h"
+#include "../misc/misc.h"
 
 // windows
 #undef min
@@ -12,9 +13,9 @@
 // kinda sucks that we have to use a macro but whatever
 #define enc_str(str)\
 (([]() {\
-	constexpr auto _encrypted = mango::_EncryptedString(str);\
+	constexpr mango::_EncryptedString<sizeof(str)> _encrypted(str);\
 	return _encrypted();\
-})())
+})())\
 
 
 namespace mango { 
@@ -23,55 +24,48 @@ namespace mango {
 	class _EncryptedString {
 	public:
 		// encrypt the string in the constructor, at compile time (hopefully)
-		constexpr _EncryptedString(const char(&str)[Size]) : m_key(compile_time_key(Size - 1)) {
+		constexpr _EncryptedString(const char(&str)[Size]) : m_key(mango::compile_time_key(Size - 1)), m_data({}) {
+			// pack the string into 64-bit blocks
 			const auto size = Size - 1;
-			for (size_t i = 0; i < size; i += 8) {
-				const auto block = this->pack_block(str + i, size - i);
+			mango::for_constexpr<0, Size - 1, 1>([&](const size_t i) {
+				if (i % 8 == 0)
+					this->m_data[i / 8] = 0;
+				this->m_data[i / 8] += uint64_t(str[i]) << ((i % 8) * 8);
+			});
 
-				// encrypt the block
-				this->m_data[i / 8] = this->enc_block(block, i);
-			}
+			// encrypt each block
+			mango::for_constexpr<0, (Size + 6) / 8, 1>([&](const size_t i) {
+				this->m_data[i] = (this->m_data[i] + (this->m_key * i)) ^ (this->m_key + i);
+			});
 		}
 
 		// decrypt the string
 		std::string operator()() const {
 			const auto size = Size - 1;
-			std::string str(size, 0);
+			std::string decrypted_string(size, 0);
 			for (size_t i = 0; i < size; i += 8) {
 				// decrypt the block
-				const auto block = this->dec_block(this->m_data[i / 8], i);
+				const auto block = this->dec_block(this->m_data[i / 8], i / 8);
 
 				// unpack the block
 				for (size_t j = 0; j < std::min<size_t>(size - i, 8); ++j)
-					str[i + j] = uint8_t(block >> (j * 8));
+					decrypted_string[i + j] = uint8_t(block >> (j * 8));
 			}
-			return str;
+
+			return decrypted_string;
 		}
 
 	private:
-		// encrypt a block
-		constexpr uint64_t enc_block(const uint64_t block, const size_t i) const {
-			return (block + (this->m_key * i)) ^ (this->m_key + i);
-		};
-
 		// decrypt a block
 		constexpr uint64_t dec_block(const uint64_t block, const size_t i) const {
 			return (block ^ (this->m_key + i)) - (this->m_key * i);
 		};
-
-		// pack into 64bits
-		constexpr uint64_t pack_block(const char* str, const size_t size) const {
-			uint64_t block = 0;
-			for (size_t i = 0; i < std::min<size_t>(size, 8); ++i)
-				block += uint64_t(str[i]) << (i * 8);
-			return block;
-		}
 
 		// atleast 1 char
 		static_assert(Size > 1, "Cannot encrypt empty string");
 
 	private:
 		std::array<uint64_t, (Size + 6) / 8> m_data;
-		uint64_t m_key;
+		const uint64_t m_key;
 	};
 } // namespace mango
