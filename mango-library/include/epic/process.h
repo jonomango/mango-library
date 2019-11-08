@@ -141,8 +141,6 @@ namespace mango {
 			this->create_remote_thread(reinterpret_cast<void*>(address), reinterpret_cast<void*>(argument));
 		}
 
-		// wrapper over 
-
 		// updates the internal list of modules
 		void load_modules();
 
@@ -162,6 +160,9 @@ namespace mango {
 
 		// update the internal list of module addresses
 		void query_module_addresses();
+
+		// SeDebugPrivilege
+		void set_debug_privilege(bool value) const;
 
 	private:
 		bool m_is_valid = false,

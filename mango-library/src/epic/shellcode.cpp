@@ -6,11 +6,14 @@
 
 
 namespace mango {
-	// allocate memory in the target process and write shellcode to the address
+	// allocate memory in the target process
 	uintptr_t Shellcode::allocate(const Process& process) const {
-		const auto address = process.alloc_virt_mem(this->m_data.size(), PAGE_EXECUTE_READWRITE);
+		return process.alloc_virt_mem(this->m_data.size(), PAGE_EXECUTE_READWRITE);
+	}
+
+	// copy the shellcode to the address
+	void Shellcode::write(const Process& process, uintptr_t address) const {
 		process.write(address, this->m_data.data(), this->m_data.size());
-		return address;
 	}
 
 	// free shellcode that was previously allocated with Shellcode::allocate()
@@ -20,9 +23,13 @@ namespace mango {
 	}
 
 	// execute the shellcode in the process, basically just calls
-	// Shellcode::allocate(), Process::create_remote_thread(), Shellcode::free()
+	// Shellcode::allocate()
+	// Shellcode::write()
+	// Process::create_remote_thread()
+	// Shellcode::free()
 	void Shellcode::execute(const Process& process, const uintptr_t argument) const {
 		const auto address = this->allocate(process);
+		this->write(process, address);
 		process.create_remote_thread(address, argument);
 		this->free(process, address);
 	}

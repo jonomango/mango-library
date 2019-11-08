@@ -22,6 +22,7 @@
     <ClInclude Include="include\crypto\compile_time_key.h" />
     <ClInclude Include="include\crypto\string_encryption.h" />
     <ClInclude Include="include\crypto\fnv_hash.h" />
+    <ClInclude Include="include\epic\unused_memory.h" />
     <ClInclude Include="include\epic\iat_hook.h" />
     <ClInclude Include="include\epic\loader.h" />
     <ClInclude Include="include\epic\pattern_scanner.h" />
@@ -40,6 +41,7 @@
     <ClInclude Include="include\misc\vector.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\epic\unused_memory.cpp" />
     <ClCompile Include="src\epic\iat_hook.cpp" />
     <ClCompile Include="src\epic\pattern_scanner.cpp" />
     <ClCompile Include="src\epic\syscalls.cpp" />

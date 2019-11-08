@@ -52,4 +52,7 @@ namespace mango {
 	mango_create_error(FailedToResolveImport, "Failed to resolve import when manually mapping image.");
 	mango_create_error(FailedToReadFile, "Failed to read file.");
 	mango_create_error(FailedToVerifyX64Transition, "Failed to verify against Wowx64Transition address.");
+	mango_create_error(FailedToOpenProcessToken, "Failed to open process token.");
+	mango_create_error(FailedToGetPrivilegeLUID, "Failed to get privilege LUID.");
+	mango_create_error(FailedToSetTokenPrivilege, "Failed to set token's privileges.");
 } // namespace mango

@@ -22,15 +22,21 @@ namespace mango {
 		template <typename ...Args>
 		Shellcode(Args&& ...args) noexcept { this->push(std::forward<Args>(args)...);  }
 
-		// allocate memory in the target process and write shellcode to the address
+		// allocate memory in the target process
 		uintptr_t allocate(const Process& process) const;
+
+		// copy the shellcode to the address
+		void write(const Process& process, uintptr_t address) const;
 
 		// free shellcode that was previously allocated with Shellcode::allocate()
 		// NOTE: do not modify (.push or .clear) shellcode between allocate() and free() calls
 		static void free(const Process& process, const uintptr_t address);
 
 		// execute the shellcode in the process, basically just calls
-		// Shellcode::allocate(), Process::create_remote_thread(), Shellcode::free()
+		// Shellcode::allocate()
+		// Shellcode::write()
+		// Process::create_remote_thread()
+		// Shellcode::free()
 		void execute(const Process& process, const uintptr_t argument = 0) const;
 
 		// reset

@@ -286,12 +286,13 @@ void test_shellcode(mango::Process& process) {
 	shellcode.push("\x00\x69");
 	unit_test.expect_value(*reinterpret_cast<uint16_t*>(shellcode.get_data().data()), 0x6900);
 
-	// allocate and make sure its properly written to memory
-	const auto data = shellcode.allocate(process);
-	unit_test.expect_nonzero(data);
-	unit_test.expect_value(process.read<uint16_t>(data), 0x6900);
+	// allocate and write shellcode to memory
+	const auto address = shellcode.allocate(process);
+	shellcode.write(process, address);
+	unit_test.expect_nonzero(address);
+	unit_test.expect_value(process.read<uint16_t>(address), 0x6900);
 
-	shellcode.free(process, data);
+	shellcode.free(process, address);
 }
 
 void test_misc(mango::Process& process) {

@@ -31,6 +31,35 @@ namespace mango {
 		// size of image
 		loaded_module->m_image_size = nt_header.OptionalHeader.SizeOfImage;
 
+		// section sizes are a multiple of this
+		loaded_module->m_section_alignment = nt_header.OptionalHeader.FileAlignment;
+
+		// iterate through each section
+		for (uintptr_t i = 0; i < nt_header.FileHeader.NumberOfSections; ++i) {
+			// the section headers are right after the pe header in memory
+			const auto section_header = process.read<IMAGE_SECTION_HEADER>(
+				address + dos_header.e_lfanew + sizeof(image_nt_headers) + (i * sizeof(IMAGE_SECTION_HEADER)));
+		
+			LoadedModule::PeSection section;
+
+			// the section name
+			char name[9] = { 0 };
+			*reinterpret_cast<uint64_t*>(name) = *reinterpret_cast<const uint64_t*>(section_header.Name);
+			section.m_name = name;
+		
+			// address
+			section.m_address = address + section_header.VirtualAddress;
+
+			// size
+			section.m_raw_size = section_header.SizeOfRawData;
+			section.m_virtual_size = section_header.Misc.VirtualSize;
+		
+			// characteristics
+			section.m_characteristics = section_header.Characteristics;
+
+			loaded_module->m_sections.emplace_back(section);
+		}
+
 		// export data directory
 		const auto ex_dir = process.read<IMAGE_EXPORT_DIRECTORY>(address +
 			nt_header.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress);

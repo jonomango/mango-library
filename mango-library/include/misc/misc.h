@@ -47,4 +47,15 @@ namespace mango {
 		size_t m_size;
 		const char* const m_str;
 	};
+
+	// simple scope guard class
+	template <typename Callable>
+	class ScopeGuard {
+	public:
+		ScopeGuard(Callable&& callable) : m_callable(std::move(callable)) {}
+		~ScopeGuard() { this->m_callable(); }
+
+	private:
+		const Callable m_callable;
+	};
 } // namespace mango

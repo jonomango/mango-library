@@ -263,23 +263,18 @@ namespace mango {
 			throw InvalidFileSize();
 
 		// allocate a buffer for the file contents
-		const auto image_buffer = new uint8_t[file_size];
+		const auto image_buffer = std::make_unique<uint8_t[]>(file_size);
 		if (!image_buffer)
 			throw FailedToAllocateVirtualMemory();
 
 		// read file
-		if (DWORD num_bytes = 0; !ReadFile(file_handle, image_buffer, file_size, &num_bytes, FALSE))
+		if (DWORD num_bytes = 0; !ReadFile(file_handle, image_buffer.get(), file_size, &num_bytes, FALSE))
 			throw FailedToReadFile();
 
 		// don't need it anymore
 		CloseHandle(file_handle);
 
-		const auto ret_value = manual_map(process, image_buffer);
-
-		// free memory
-		delete[] image_buffer;
-
-		return ret_value;
+		return manual_map(process, image_buffer.get());
 	}
 	uintptr_t manual_map(const Process& process, const uint8_t* const image) {
 		return process.is_64bit() ?

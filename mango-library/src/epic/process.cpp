@@ -21,6 +21,8 @@ namespace mango {
 		if (!mango::verify_x64transition())
 			throw FailedToVerifyX64Transition();
 
+		this->set_debug_privilege(true);
+
 		// open a handle to the process
 		this->m_handle = OpenProcess(
 			PROCESS_VM_READ | // ReadProcessMemory
@@ -30,6 +32,8 @@ namespace mango {
 			PROCESS_CREATE_THREAD, // CreateRemoteThread
 			FALSE, pid
 		);
+
+		this->set_debug_privilege(false);
 
 		// whether we're valid or not depends entirely on OpenProcess()
 		if (this->m_handle == nullptr)
@@ -291,5 +295,33 @@ namespace mango {
 			// add to list
 			this->m_module_addresses[name] = uintptr_t(modules[i]);
 		}
+	}
+
+	// SeDebugPrivilege
+	void Process::set_debug_privilege(bool value) const {
+		// get a process token handle
+		HANDLE token_handle = nullptr;
+		if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &token_handle))
+			throw FailedToOpenProcessToken();
+
+		// get the privilege luid
+		LUID luid;
+		if (!LookupPrivilegeValue(0, SE_DEBUG_NAME, &luid)) {
+			CloseHandle(token_handle);
+			throw FailedToGetPrivilegeLUID();
+		}
+
+		TOKEN_PRIVILEGES token_privileges;
+		token_privileges.PrivilegeCount = 1;
+		token_privileges.Privileges[0].Luid = luid;
+		token_privileges.Privileges[0].Attributes = value ? SE_PRIVILEGE_ENABLED : SE_PRIVILEGE_REMOVED;
+
+		// the goob part
+		if (!AdjustTokenPrivileges(token_handle, false, &token_privileges, 0, 0, 0)) {
+			CloseHandle(token_handle);
+			throw FailedToSetTokenPrivilege();
+		}
+
+		CloseHandle(token_handle);
 	}
 } // namespace mango
