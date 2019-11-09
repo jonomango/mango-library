@@ -89,7 +89,6 @@ namespace mango {
 			"\x58", // pop eax (for the syscall)
 			"\xBA", this->m_original, // mov edx, m_original
 			"\xFF\xE2" // jmp edx
-
-		).allocate(*this->m_process));
+		).allocate_and_write(*this->m_process));
 	}
 } // namespace mango

@@ -18,10 +18,6 @@ namespace mango {
 	void Process::setup(const uint32_t pid, const SetupOptions& options) {
 		this->release();
 
-		// for syscalls
-		if (!mango::verify_x64transition())
-			throw FailedToVerifyX64Transition();
-
 		this->set_debug_privilege(true);
 
 		// open a handle to the process
@@ -66,10 +62,6 @@ namespace mango {
 	// setup using an existing handle (must have atleast PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ)
 	void Process::setup(const HANDLE handle, const SetupOptions& options) {
 		this->release();
-
-		// for syscalls
-		if (!mango::verify_x64transition())
-			throw FailedToVerifyX64Transition();
 
 		// properly cleanup if an exception is thrown
 		mango::ScopeGuard _guard(&Process::release, this);

@@ -3,10 +3,12 @@
 #include <epic/process.h>
 #include <epic/vmt_hook.h>
 #include <epic/iat_hook.h>
+#include <epic/syscall_hook.h>
 #include <epic/shellcode.h>
 #include <epic/loader.h>
 #include <epic/loaded_module.h>
 #include <epic/pattern_scanner.h>
+#include <epic/syscalls.h>
 
 #include <misc/misc.h>
 #include <misc/unit_test.h>
@@ -273,6 +275,31 @@ void test_iat_hooks(mango::Process& process) {
 	unit_test.expect_zero(iat_hook.is_valid());
 }
 
+void test_syscall_hooks(mango::Process& process) {
+	// only works on wow64 process
+	if (sizeof(void*) != 4)
+		return;
+
+	mango::UnitTest unit_test("Wow64SyscallHook");
+
+	const auto syscall_callback = static_cast<bool(*)(const uint32_t, uint32_t* const, volatile uint32_t)>(
+		[](const uint32_t syscall_index, uint32_t* const arguments, volatile uint32_t return_value) {
+		if (syscall_index == mango::syscall_index("NtReadVirtualMemory")) {
+			*reinterpret_cast<uint32_t*>(uintptr_t(arguments[1])) = 420;
+			return_value = 0;
+			return false;
+		}
+		return true;
+	});
+
+	mango::Wow64SyscallHook syscall_hook(process, uint32_t(uintptr_t(syscall_callback)));
+
+	// overwrite the value in the syscall_callback
+	int value = 69;
+	ReadProcessMemory(process.get_handle(), &value, 0, 0, 0);
+	unit_test.expect_value(value, 420);
+}
+
 // not much to test, mostly just makes sure that all the cancer template stuff compiles
 void test_shellcode(mango::Process& process) {
 	mango::UnitTest unit_test("Shellcode");
@@ -305,8 +332,7 @@ void test_shellcode(mango::Process& process) {
 	unit_test.expect_value(*reinterpret_cast<uint16_t*>(shellcode.get_data().data()), 0x6900);
 
 	// allocate and write shellcode to memory
-	const auto address = shellcode.allocate(process);
-	shellcode.write(process, address);
+	const auto address = shellcode.allocate_and_write(process);
 	unit_test.expect_nonzero(address);
 	unit_test.expect_value(process.read<uint16_t>(address), 0x6900);
 
@@ -399,6 +425,7 @@ void run_unit_tests() {
 		test_process(process);
 		test_vmt_hooks(process);
 		test_iat_hooks(process);
+		test_syscall_hooks(process);
 		test_shellcode(process);
 		test_loaded_module(process);
 		test_pattern_scanner(process);

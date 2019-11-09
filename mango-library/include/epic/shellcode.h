@@ -28,6 +28,13 @@ namespace mango {
 		// copy the shellcode to the address
 		void write(const Process& process, uintptr_t address) const;
 
+		// allocate() then write()
+		uintptr_t allocate_and_write(const Process& process) const {
+			const auto address = this->allocate(process);
+			this->write(process, address);
+			return address;
+		}
+
 		// free shellcode that was previously allocated with Shellcode::allocate()
 		// NOTE: do not modify (.push or .clear) shellcode between allocate() and free() calls
 		static void free(const Process& process, const uintptr_t address);

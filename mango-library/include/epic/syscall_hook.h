@@ -14,7 +14,7 @@ namespace mango {
 		using Callback = bool(*)(const uint32_t syscall_index, uint32_t* const arguments, volatile uint32_t return_value);
 
 		struct SetupOptions {
-			// whether we should call release in the constructor or not
+			// whether we should call release in the destructor or not
 			bool m_auto_release = true;
 		};
 

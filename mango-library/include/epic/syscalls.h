@@ -10,14 +10,6 @@ namespace mango {
 	// dynamically get the sycall index of a function in ntdll.dll
 	uint32_t syscall_index(const std::string& func_name);
 
-	// get address of Wow64Transition
-	uint32_t get_x64transition();
-
-	// verify that our hardcoded transition address is correct
-	// should always be checked when using x86 syscalls
-	// always returns true in 64 bit process
-	bool verify_x64transition();
-
 	// syscall.asm if compiled for x64
 	extern "C" void _syscall_stub();
 
