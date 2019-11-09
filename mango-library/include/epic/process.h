@@ -27,17 +27,23 @@ namespace mango {
 		explicit Process(const uint32_t pid, const SetupOptions& options = SetupOptions()) {
 			this->setup(pid, options); 
 		}
+		explicit Process(const HANDLE handle, const SetupOptions& options = SetupOptions()) {
+			this->setup(handle, options);
+		}
 
 		// just calls release
 		~Process() noexcept { this->release(); }
 
 		// get the current process
 		static Process current(const SetupOptions& options = SetupOptions()) { 
-			return Process(GetCurrentProcessId(), options); 
+			return Process(GetCurrentProcess(), options);
 		}
 
-		// initialization
+		// setup by pid
 		void setup(const uint32_t pid, const SetupOptions& options = SetupOptions());
+
+		// setup using an existing handle (must have atleast PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ)
+		void setup(const HANDLE handle, const SetupOptions& options = SetupOptions());
 
 		// clean up
 		void release() noexcept;
@@ -73,11 +79,7 @@ namespace mango {
 		uintptr_t get_module_addr(const std::string& module_name = "") const;
 
 		// this uses the internal list of modules to find the function address
-		// not as consistant as the implementation below but probably faster
 		uintptr_t get_proc_addr(const std::string& module_name, const std::string& func_name) const;
-
-		// uses shellcode to call GetProcAddress() in the remote process
-		uintptr_t get_proc_addr(const uintptr_t hmodule, const std::string& func_name) const;
 
 		// get the address of a virtual method in an instance
 		template <typename Ret, typename Addr>
@@ -166,7 +168,8 @@ namespace mango {
 
 	private:
 		bool m_is_valid = false,
-			m_is_self = false, 
+			m_is_self = false,
+			m_free_handle = false,
 			m_is_64bit = false;
 		HANDLE m_handle = nullptr;
 		uint32_t m_pid = 0;

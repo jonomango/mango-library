@@ -51,34 +51,40 @@ void setup_logger() {
 	mango::logger.success("Logging channels initialized.");
 }
 
+template <bool B>
+constexpr auto test_func() {
+	constexpr mango::Vec3i vec(69);
+	constexpr auto v = vec.accumulate(0, 3);
+	return v;
+}
 
 int main() {
 	setup_logger();
 
 	// in case we broke some shit
-	//run_unit_tests();
+	run_unit_tests();
 
 	// catch any exceptions
 	try {
-		auto process = mango::Process(28704);
+		auto process = mango::Process::current();
 
-		mango::Shellcode shellcode(
-			"",
-			mango::Shellcode::ret()
-		);
-
-		auto shellcode_addr = uintptr_t(0);// mango::find_unused_xrw_memory(process, shellcode.size());
-		if (shellcode_addr) {
-			shellcode.write(process, shellcode_addr);
-		} else {
-			shellcode_addr = mango::find_unused_xr_memory(process, shellcode.size());
-			if (!shellcode_addr)
-				throw std::runtime_error("Failed to find suitable memory");
-
-			const auto original_protection = process.set_mem_prot(shellcode_addr, shellcode.size(), PAGE_EXECUTE_READWRITE);
-			shellcode.write(process, shellcode_addr);
-			process.set_mem_prot(shellcode_addr, shellcode.size(), original_protection);
-		}
+		//mango::Shellcode shellcode(
+		//	"",
+		//	mango::Shellcode::ret()
+		//);
+		//
+		//auto shellcode_addr = uintptr_t(0);// mango::find_unused_xrw_memory(process, shellcode.size());
+		//if (shellcode_addr) {
+		//	shellcode.write(process, shellcode_addr);
+		//} else {
+		//	shellcode_addr = mango::find_unused_xr_memory(process, shellcode.size());
+		//	if (!shellcode_addr)
+		//		throw std::runtime_error("Failed to find suitable memory");
+		//
+		//	const auto original_protection = process.set_mem_prot(shellcode_addr, shellcode.size(), PAGE_EXECUTE_READWRITE);
+		//	shellcode.write(process, shellcode_addr);
+		//	process.set_mem_prot(shellcode_addr, shellcode.size(), original_protection);
+		//}
 	} catch (mango::MangoError& e) {
 		mango::logger.error(e.what());
 	} catch (std::exception& e) {

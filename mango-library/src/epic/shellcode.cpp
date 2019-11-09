@@ -3,6 +3,7 @@
 #include <iomanip>
 
 #include "../../include/epic/process.h"
+#include "../../include/misc/misc.h"
 
 
 namespace mango {
@@ -29,9 +30,12 @@ namespace mango {
 	// Shellcode::free()
 	void Shellcode::execute(const Process& process, const uintptr_t argument) const {
 		const auto address = this->allocate(process);
+
+		// free the memory when we're done
+		ScopeGuard _guard(&Shellcode::free, std::ref(process), address);
+
 		this->write(process, address);
 		process.create_remote_thread(address, argument);
-		this->free(process, address);
 	}
 
 	// push raw data, used by push()
@@ -55,7 +59,6 @@ namespace mango {
 			stream << "0x" << std::setfill('0') << std::setw(2) << std::uppercase << std::hex << +b << ' ';
 
 		stream << "]";
-
 		return stream;
 	}
 	std::wostream& operator<<(std::wostream& stream, const Shellcode& shellcode) {

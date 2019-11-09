@@ -5,6 +5,8 @@
 #include <iomanip>
 #include <numeric>
 
+#include "misc.h"
+
 // fkn windows
 #undef min
 #undef max
@@ -17,8 +19,9 @@ namespace mango {
 	public:
 		// std::array::fill() is not constexpr btw
 		constexpr explicit Vector(const T& scalar = T(0)) noexcept { 
-			for (size_t i = 0; i < C; ++i)
+			for_constexpr<0, C, 1>([&](const size_t i) {
 				this->operator[](i) = scalar;
+			});
 		}
 
 		// Vector(...) or Vector({...}) or Vector v = {...}
@@ -120,11 +123,12 @@ namespace mango {
 		return stream;
 	}
 
-	using vec2f = Vector<float, 2>;
-	using vec3f = Vector<float, 3>;
-	using vec4f = Vector<float, 4>;
-
-	using vec2i = Vector<int, 2>;
-	using vec3i = Vector<int, 3>;
-	using vec4i = Vector<int, 4>;
+	// common uses
+	using Vec2f = Vector<float, 2>;
+	using Vec3f = Vector<float, 3>;
+	using Vec4f = Vector<float, 4>;
+		  
+	using Vec2i = Vector<int, 2>;
+	using Vec3i = Vector<int, 3>;
+	using Vec4i = Vector<int, 4>;
 } // namespace mango

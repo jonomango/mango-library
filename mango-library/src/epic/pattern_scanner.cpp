@@ -1,12 +1,16 @@
 #include "../../include/epic/pattern_scanner.h"
 
 #include "../../include/epic/process.h"
+#include "../../include/misc/error_codes.h"
 
 #include <memory>
 
 
 namespace mango {
 	// find a pattern, IDA-style (example: "12 ? 34 ? ? 45 F9")
+	// input bytes have to be 2 characters wide and wildcards always a single question mark
+	// input is case insensitive and spaces are completely ignored
+	// these two patterns are treated the same: "25 ? F3 ? 14 ? ? C9" && "25?f3?14??c9"
 	uintptr_t find_pattern(Process& process, const std::string& module_name, const std::string_view& pattern) {
 		// take 2 chars (ex: 'F' and 'F') and return the byte (0xFF)
 		const auto parse_byte = [](char c1, char c2) {
@@ -28,7 +32,7 @@ namespace mango {
 
 		const auto mod = process.get_module(module_name);
 		if (!mod)
-			return 0;
+			throw FailedToFindModule();		
 
 		// from the start of the module memory to the end
 		const auto start = mod->get_image_base(),
@@ -51,8 +55,13 @@ namespace mango {
 				if (pattern[i] == '?')
 					continue;
 
+				// sanity check 
+				const auto curr_index = (current - start) + j - 1;
+				if (curr_index >= end - start)
+					return 0;
+
 				// check if byte matches
-				if (buffer[(current - start) + j - 1] == parse_byte(pattern[i], pattern[i + 1])) {
+				if (buffer[curr_index] == parse_byte(pattern[i], pattern[i + 1])) {
 					i += 1;
 					continue;
 				}

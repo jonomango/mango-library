@@ -8,12 +8,13 @@
 #include "../../include/epic/syscalls.h"
 #include "../../include/epic/windows_defs.h"
 
+#include "../../include/misc/misc.h"
 #include "../../include/misc/error_codes.h"
 #include "../../include/misc/logger.h"
 
 
 namespace mango {
-	// initialization
+	// setup by pid
 	void Process::setup(const uint32_t pid, const SetupOptions& options) {
 		this->release();
 
@@ -39,26 +40,59 @@ namespace mango {
 		if (this->m_handle == nullptr)
 			throw InvalidProcessHandle();
 
+		// properly cleanup if an exception is thrown
+		mango::ScopeGuard _guard(&Process::release, this);
+
+		this->m_free_handle = true;
 		this->m_is_valid = true;
 		this->m_options = options;
 		this->m_pid = pid;
-		this->m_is_self = (pid == GetCurrentProcessId());
+		this->m_is_self = (this->m_pid == GetCurrentProcessId());
 
-		// so we don't leak a handle
-		try {
-			// cache some info
-			this->m_process_name = this->query_name();
-			this->m_is_64bit = this->query_is_64bit();
+		// cache some info
+		this->m_process_name = this->query_name();
+		this->m_is_64bit = this->query_is_64bit();
 
-			// update the internal list of modules
-			if (!options.m_defer_module_loading)
-				this->load_modules();
-			else
-				this->query_module_addresses();
-		} catch (...) {
-			this->release();
-			throw;
-		}
+		// update the internal list of modules
+		if (!options.m_defer_module_loading)
+			this->load_modules();
+		else
+			this->query_module_addresses();
+
+		// no exception was thrown, great
+		_guard.cancel();
+	}
+
+	// setup using an existing handle (must have atleast PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ)
+	void Process::setup(const HANDLE handle, const SetupOptions& options) {
+		this->release();
+
+		// for syscalls
+		if (!mango::verify_x64transition())
+			throw FailedToVerifyX64Transition();
+
+		// properly cleanup if an exception is thrown
+		mango::ScopeGuard _guard(&Process::release, this);
+
+		this->m_handle = handle;
+		this->m_free_handle = false;
+		this->m_is_valid = true;
+		this->m_options = options;
+		this->m_pid = GetProcessId(handle);
+		this->m_is_self = (this->m_pid == GetCurrentProcessId());
+
+		// cache some info
+		this->m_process_name = this->query_name();
+		this->m_is_64bit = this->query_is_64bit();
+
+		// update the internal list of modules
+		if (!options.m_defer_module_loading)
+			this->load_modules();
+		else
+			this->query_module_addresses();
+
+		// no exception was thrown, great
+		_guard.cancel();
 	}
 
 	// clean up
@@ -66,7 +100,12 @@ namespace mango {
 		if (!this->m_is_valid)
 			return;
 
-		CloseHandle(this->m_handle);
+		// never throw in a destructor
+		try {
+			if (this->m_free_handle)
+				CloseHandle(this->m_handle);
+		} catch (...) {}
+
 		this->m_is_valid = false;
 	}
 
@@ -114,64 +153,14 @@ namespace mango {
 		return exp->m_address;
 	}
 
-	// uses shellcode to call GetProcAddress() in the remote process
-	uintptr_t Process::get_proc_addr(const uintptr_t hmodule, const std::string& func_name) const {
-		const auto func_addr = this->get_proc_addr(enc_str("kernel32.dll"), enc_str("GetProcAddress"));
-		if (!func_addr)
-			throw FailedToGetFunctionAddress();
-
-		// this will store func_name
-		const auto str_address = uintptr_t(this->alloc_virt_mem(func_name.size() + 1));
-
-		// for the return value of GetProcAddress
-		const auto ret_address = uintptr_t(this->alloc_virt_mem(this->get_ptr_size()));
-
-		// copy the func_name
-		this->write(str_address, func_name.data(), func_name.size() + 1);
-
-		// the return value of GetProcAddress()
-		uintptr_t ret_value = 0;
-
-		if (this->is_64bit()) {
-			Shellcode(
-				"\x48\x83\xEC\x20", // sub rsp, 0x20
-				"\x48\xBA", str_address, // movabs rdx, str_address
-				"\x48\xB9", hmodule, // movabs rcx, hmodule
-				"\x48\xB8", func_addr, // movabs rax, func_addr
-				"\xFF\xD0", // call rax
-				"\x48\xA3", ret_address, // movabs [ret_address], rax
-				"\x48\x83\xC4\x20", // add rsp, 0x20
-				"\xC3" // ret
-			).execute(*this);
-
-			ret_value = uintptr_t(this->read<uint64_t>(ret_address));
-		} else {
-			Shellcode(
-				"\x68", uint32_t(str_address), // push str_address
-				"\x68", uint32_t(hmodule), // push hmodule
-				"\xB8", uint32_t(func_addr), // mov eax, func_addr
-				"\xFF\xD0", // call eax
-				"\xA3", uint32_t(ret_address), // mov [ret_address], eax
-				"\xC3" // ret
-			).execute(*this);
-
-			ret_value = this->read<uint32_t>(ret_address);
-		}
-
-		// free memory
-		this->free_virt_mem(str_address);
-		this->free_virt_mem(ret_address);
-
-		return ret_value;
-	}
-
 	// read from a memory address
 	void Process::read(const void* const address, void* const buffer, const size_t size) const {
 		if (this->is_self()) {
 			if (memcpy_s(buffer, size, address, size))
 				throw FailedToReadMemory();
-		} else if (!NT_SUCCESS(NtReadVirtualMemory(this->m_handle, address, buffer, size, nullptr)))
+		} else if (!NT_SUCCESS(NtReadVirtualMemory(this->m_handle, address, buffer, size, nullptr))) {
 			throw FailedToReadMemory();
+		}
 	}
 
 	// write to a memory address
@@ -304,12 +293,13 @@ namespace mango {
 		if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &token_handle))
 			throw FailedToOpenProcessToken();
 
+		// close handle when we're done
+		ScopeGuard _guard(CloseHandle, token_handle);
+
 		// get the privilege luid
 		LUID luid;
-		if (!LookupPrivilegeValue(0, SE_DEBUG_NAME, &luid)) {
-			CloseHandle(token_handle);
+		if (!LookupPrivilegeValue(0, SE_DEBUG_NAME, &luid))
 			throw FailedToGetPrivilegeLUID();
-		}
 
 		TOKEN_PRIVILEGES token_privileges;
 		token_privileges.PrivilegeCount = 1;
@@ -317,11 +307,7 @@ namespace mango {
 		token_privileges.Privileges[0].Attributes = value ? SE_PRIVILEGE_ENABLED : SE_PRIVILEGE_REMOVED;
 
 		// the goob part
-		if (!AdjustTokenPrivileges(token_handle, false, &token_privileges, 0, 0, 0)) {
-			CloseHandle(token_handle);
+		if (!AdjustTokenPrivileges(token_handle, false, &token_privileges, 0, 0, 0))
 			throw FailedToSetTokenPrivilege();
-		}
-
-		CloseHandle(token_handle);
 	}
 } // namespace mango

@@ -9,7 +9,7 @@ namespace mango {
 	// scope based unit testing class (single header)
 	class UnitTest {
 	public:
-		UnitTest(std::string&& name) : m_name(name) {
+		UnitTest(const std::string& name) : m_name(name) {
 			mango::logger.info("Starting unit tests: ", this->m_name);
 		}
 		~UnitTest() {
@@ -61,7 +61,6 @@ namespace mango {
 				this->failure("recieved: true, expected: false");
 		}
 
-	private:
 		void success() {
 			++this->m_successes;
 			++this->m_test_num;

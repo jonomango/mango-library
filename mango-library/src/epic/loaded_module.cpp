@@ -13,19 +13,19 @@ namespace mango {
 	template <bool is64bit>
 	void setup_internal(LoadedModule* loaded_module, const Process& process, const uintptr_t address) {
 		// architecture dependent types
-		using image_nt_headers = typename std::conditional<is64bit, IMAGE_NT_HEADERS64, IMAGE_NT_HEADERS32>::type;
-		using image_optional_header = typename std::conditional<is64bit, IMAGE_OPTIONAL_HEADER64, IMAGE_OPTIONAL_HEADER32>::type;
-		using image_thunk_data = typename std::conditional<is64bit, uint64_t, uint32_t>::type;
+		using ImageNtHeaders = typename std::conditional<is64bit, IMAGE_NT_HEADERS64, IMAGE_NT_HEADERS32>::type;
+		using ImageOptionalHeader = typename std::conditional<is64bit, IMAGE_OPTIONAL_HEADER64, IMAGE_OPTIONAL_HEADER32>::type;
+		using ImageThunkData = typename std::conditional<is64bit, uint64_t, uint32_t>::type;
 
 		const auto dos_header = process.read<IMAGE_DOS_HEADER>(address);
-		const auto nt_header = process.read<image_nt_headers>(address + dos_header.e_lfanew);
+		const auto nt_header = process.read<ImageNtHeaders>(address + dos_header.e_lfanew);
 
 		// not a PE signature
 		if (nt_header.Signature != IMAGE_NT_SIGNATURE)
 			throw InvalidPEHeader();
 
 		// why not /shrug
-		if (nt_header.FileHeader.SizeOfOptionalHeader != sizeof(image_optional_header))
+		if (nt_header.FileHeader.SizeOfOptionalHeader != sizeof(ImageOptionalHeader))
 			throw InvalidPEHeader();
 
 		// size of image
@@ -38,7 +38,7 @@ namespace mango {
 		for (uintptr_t i = 0; i < nt_header.FileHeader.NumberOfSections; ++i) {
 			// the section headers are right after the pe header in memory
 			const auto section_header = process.read<IMAGE_SECTION_HEADER>(
-				address + dos_header.e_lfanew + sizeof(image_nt_headers) + (i * sizeof(IMAGE_SECTION_HEADER)));
+				address + dos_header.e_lfanew + sizeof(ImageNtHeaders) + (i * sizeof(IMAGE_SECTION_HEADER)));
 		
 			LoadedModule::PeSection section;
 
@@ -113,12 +113,12 @@ namespace mango {
 			auto& imported_funcs = loaded_module->m_imported_funcs[module_name];
 
 			// iterate through each thunk
-			for (uintptr_t j = 0; true; j += sizeof(image_thunk_data)) {
-				const auto orig_thunk = process.read<image_thunk_data>(address + iat_entry->OriginalFirstThunk + j);
+			for (uintptr_t j = 0; true; j += sizeof(ImageThunkData)) {
+				const auto orig_thunk = process.read<ImageThunkData>(address + iat_entry->OriginalFirstThunk + j);
 				if (!orig_thunk || orig_thunk > loaded_module->m_image_size)
 					break;
 			
-				const auto thunk = reinterpret_cast<image_thunk_data*>(
+				const auto thunk = reinterpret_cast<ImageThunkData*>(
 					&iat_directory_data[iat_entry->FirstThunk + j - iat_directory.VirtualAddress]);
 
 				// IMAGE_IMPORT_BY_NAME::Name
@@ -137,23 +137,24 @@ namespace mango {
 
 	// setup (parse the pe header mostly)
 	void LoadedModule::setup(const Process& process, const uintptr_t address) {
-		this->m_image_base = address;
-		this->m_is_valid = true;
-
 		// reset
 		m_exported_funcs.clear();
 		m_imported_funcs.clear();
 
+		this->m_image_base = address;
+		this->m_is_valid = true;
+
+		// make sure we aren't valid if setup_internal throws an exception
+		ScopeGuard _guard([&]() { this->m_is_valid = false; });
+
 		// setup
-		try {
-			if (process.is_64bit())
-				setup_internal<true>(this, process, address);
-			else
-				setup_internal<false>(this, process, address);
-		} catch (...) {
-			this->m_is_valid = false;
-			throw;
-		}
+		if (process.is_64bit())
+			setup_internal<true>(this, process, address);
+		else
+			setup_internal<false>(this, process, address);
+
+		// woohoo we're valid
+		_guard.cancel();
 	}
 
 	// get exported functions

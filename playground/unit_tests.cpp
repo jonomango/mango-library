@@ -5,6 +5,8 @@
 #include <epic/iat_hook.h>
 #include <epic/shellcode.h>
 #include <epic/loader.h>
+#include <epic/loaded_module.h>
+#include <epic/pattern_scanner.h>
 
 #include <misc/misc.h>
 #include <misc/unit_test.h>
@@ -14,6 +16,7 @@
 
 #include <Psapi.h>
 #include <string>
+#include <iomanip>
 
 
 void test_process(mango::Process& process) {
@@ -29,7 +32,23 @@ void test_process(mango::Process& process) {
 	process.release();
 	process.release();
 
+	// initializing process with a bad pid should throw
+	{
+		mango::ScopeGuard fail_test([&]() { unit_test.failure(); });
+
+		try {
+			process.setup(3);
+		} catch (mango::MangoError&) {
+			unit_test.success();
+			fail_test.cancel();
+		}
+	}
+
+	// initialize with pid
 	process.setup(GetCurrentProcessId());
+
+	// or initialize with handle
+	process.setup(GetCurrentProcess());
 
 	// process is init now
 	unit_test.expect_nonzero(process);
@@ -53,7 +72,6 @@ void test_process(mango::Process& process) {
 	unit_test.expect_value(kernel32dll, uintptr_t(LoadLibraryA("kernel32.dll")));
 
 	// GetProcAddress
-	unit_test.expect_value(process.get_proc_addr(kernel32dll, "IsDebuggerPresent"), uintptr_t(IsDebuggerPresent));
 	unit_test.expect_value(process.get_proc_addr("kernel32.dll", "IsDebuggerPresent"), uintptr_t(IsDebuggerPresent));
 
 	// allocating virtual memory
@@ -295,6 +313,66 @@ void test_shellcode(mango::Process& process) {
 	shellcode.free(process, address);
 }
 
+void test_loaded_module(mango::Process& process) {
+	mango::UnitTest unit_test("LoadedModule");
+
+	mango::LoadedModule loaded_module;
+
+	// not setup yet
+	unit_test.expect_zero(loaded_module);
+	unit_test.expect_zero(loaded_module.is_valid());
+
+	loaded_module.setup(process, process.get_module_addr("ntdll.dll"));
+
+	// success
+	unit_test.expect_nonzero(loaded_module);
+	unit_test.expect_nonzero(loaded_module.is_valid());
+}
+
+void test_pattern_scanner(mango::Process& process) {
+	mango::UnitTest unit_test("PatternScanner");
+
+	// generate random data
+	static uint8_t random_data[512]; // has to be static (so it's not allocated on the stack)
+	for (size_t i = 0; i < sizeof(random_data); ++i)
+		random_data[i] = uint8_t(rand());
+
+	std::ostringstream pattern;
+
+	// uppercase, single spaces, no wildcards
+	for (size_t i = 0; i < sizeof(random_data); ++i)
+		pattern << std::setfill('0') << std::setw(2) << std::uppercase << std::hex << +random_data[i] << " ";
+	unit_test.expect_value(mango::find_pattern(process, process.get_name(), pattern.str()), uintptr_t(&random_data));
+
+	// lowercase, single spaces, no wildcards
+	pattern.str("");
+	for (size_t i = 0; i < sizeof(random_data); ++i)
+		pattern << std::setfill('0') << std::setw(2) << std::hex << +random_data[i] << " ";
+	unit_test.expect_value(mango::find_pattern(process, process.get_name(), pattern.str()), uintptr_t(&random_data));
+
+	// lowercase, varying spaces, no wildcards
+	pattern.str("");
+	for (size_t i = 0; i < sizeof(random_data); ++i)
+		pattern << std::setfill('0') << std::setw(2) << std::hex << +random_data[i] << std::string(rand() % 10, ' ');
+	unit_test.expect_value(mango::find_pattern(process, process.get_name(), pattern.str()), uintptr_t(&random_data));
+
+	// lowercase, varying spaces, with wildcards
+	pattern.str("");
+	for (size_t i = 0; i < sizeof(random_data); ++i) {
+		if (rand() % 10)
+			pattern << std::setfill('0') << std::setw(2) << std::hex << +random_data[i] << std::string(rand() % 10, ' ');
+		else
+			pattern << "?";
+	}
+	unit_test.expect_value(mango::find_pattern(process, process.get_name(), pattern.str()), uintptr_t(&random_data));
+
+	// random pattern, shouldn't find anything
+	pattern.str("");
+	for (size_t i = 0; i < 512; ++i)
+		pattern << std::setfill('0') << std::setw(2) << std::hex << rand() % 256;
+	unit_test.expect_zero(mango::find_pattern(process, process.get_name(), pattern.str()));
+}
+
 void test_misc(mango::Process& process) {
 	mango::UnitTest unit_test("Misc");
 
@@ -302,6 +380,16 @@ void test_misc(mango::Process& process) {
 
 	unit_test.expect_value(enc_str("testString12345"), "testString12345");
 	unit_test.expect_value(enc_str("\x00hello world!"), "\x00hello world!"s);
+
+	int dummy_value = 69;
+
+	// scope guard
+	{
+		mango::ScopeGuard _guard([&]() { dummy_value = 420; });
+		unit_test.expect_value(dummy_value, 69);
+	}
+
+	unit_test.expect_value(dummy_value, 420);
 }
 
 // unit test everything
@@ -312,6 +400,8 @@ void run_unit_tests() {
 		test_vmt_hooks(process);
 		test_iat_hooks(process);
 		test_shellcode(process);
+		test_loaded_module(process);
+		test_pattern_scanner(process);
 		test_misc(process);
 	} catch (mango::MangoError& e) {
 		mango::logger.error("Exception caught: ", e.what());

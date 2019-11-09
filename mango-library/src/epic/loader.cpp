@@ -2,6 +2,7 @@
 
 #include "../../include/epic/process.h"
 #include "../../include/epic/shellcode.h"
+#include "../../include/misc/misc.h"
 #include "../../include/misc/logger.h"
 #include "../../include/misc/error_codes.h"
 #include "../../include/crypto/string_encryption.h"
@@ -100,9 +101,9 @@ namespace mango {
 
 	template <bool is64bit>
 	uintptr_t manual_map_internal(const Process& process, const uint8_t* const image) {
-		using ptr = typename std::conditional<is64bit, uint64_t, uint32_t>::type;
-		using pimage_nt_headers = typename std::conditional<is64bit, PIMAGE_NT_HEADERS64, PIMAGE_NT_HEADERS32>::type;
-		using manual_map_data = typename std::conditional<is64bit, ManualMapData64, ManualMapData32>::type;
+		using Ptr = typename std::conditional<is64bit, uint64_t, uint32_t>::type;
+		using PImageNtHeaders = typename std::conditional<is64bit, PIMAGE_NT_HEADERS64, PIMAGE_NT_HEADERS32>::type;
+		using ManualMapData = typename std::conditional<is64bit, ManualMapData64, ManualMapData32>::type;
 
 		// dos header
 		const auto dos_header = PIMAGE_DOS_HEADER(image);
@@ -110,7 +111,7 @@ namespace mango {
 			throw InvalidPEHeader();
 
 		// nt header
-		const auto nt_header = pimage_nt_headers(image + dos_header->e_lfanew);
+		const auto nt_header = PImageNtHeaders(image + dos_header->e_lfanew);
 		if (nt_header->Signature != IMAGE_NT_SIGNATURE)
 			throw InvalidPEHeader();
 
@@ -172,15 +173,15 @@ namespace mango {
 			);
 		}
 
-		// data to pass to the loader thread
-		manual_map_data mm_data;
-		mm_data.m_module_base = ptr(module_base);
-		mm_data.m_get_proc_address = ptr(process.get_proc_addr(enc_str("kernel32.dll"), enc_str("GetProcAddress")));
-		mm_data.m_load_library = ptr(process.get_proc_addr(enc_str("kernel32.dll"), enc_str("LoadLibraryA")));
+		// arguments to pass to the loader thread
+		ManualMapData data;
+		data.m_module_base = Ptr(module_base);
+		data.m_get_proc_address = Ptr(process.get_proc_addr(enc_str("kernel32.dll"), enc_str("GetProcAddress")));
+		data.m_load_library = Ptr(process.get_proc_addr(enc_str("kernel32.dll"), enc_str("LoadLibraryA")));
 
 		// allocate and copy the loader data to the process's memory space
-		const auto thread_argument = process.alloc_virt_mem(sizeof(mm_data));
-		process.write(thread_argument, mm_data);
+		const auto thread_argument = process.alloc_virt_mem(sizeof(data));
+		process.write(thread_argument, data);
 
 		shellcode.execute(process, thread_argument);
 		
@@ -195,9 +196,11 @@ namespace mango {
 
 		// this will be where the dll path is stored in the process
 		const auto str_address = uintptr_t(process.alloc_virt_mem(dll_path.size() + 1));
+		ScopeGuard _guard_one([&]() { process.free_virt_mem(str_address); });
 
 		// for the return value of LoadLibraryA
 		const auto ret_address = uintptr_t(process.alloc_virt_mem(process.get_ptr_size()));
+		ScopeGuard _guard_two([&]() { process.free_virt_mem(ret_address); });
 
 		// write the dll name
 		process.write(str_address, dll_path.data(), dll_path.size() + 1);
@@ -233,10 +236,6 @@ namespace mango {
 			ret_value = process.read<uint32_t>(ret_address);
 		}
 
-		// free memory
-		process.free_virt_mem(str_address);
-		process.free_virt_mem(ret_address);
-
 		// truncated if called from a 64bit program to a 32bit program
 		return ret_value;
 	}
@@ -257,6 +256,9 @@ namespace mango {
 		if (file_handle == INVALID_HANDLE_VALUE)
 			throw InvalidFileHandle();
 
+		// make sure we close the handle!
+		ScopeGuard _guard(&CloseHandle, file_handle);
+
 		// file size
 		const auto file_size = GetFileSize(file_handle, NULL);
 		if (file_size == INVALID_FILE_SIZE)
@@ -270,9 +272,6 @@ namespace mango {
 		// read file
 		if (DWORD num_bytes = 0; !ReadFile(file_handle, image_buffer.get(), file_size, &num_bytes, FALSE))
 			throw FailedToReadFile();
-
-		// don't need it anymore
-		CloseHandle(file_handle);
 
 		return manual_map(process, image_buffer.get());
 	}

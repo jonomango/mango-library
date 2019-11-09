@@ -10,6 +10,7 @@
 class name : public mango::MangoError {\
 public:\
 	name() : mango::MangoError(enc_str(value)) {}\
+	name(const std::string& extra) : mango::MangoError(enc_str(value) + " " + extra) {}\
 };
 
 namespace mango {
@@ -47,6 +48,7 @@ namespace mango {
 	mango_create_error(FailedToGetFunctionAddress, "Failed to get function address.");
 	mango_create_error(FailedToCreateRemoteThread, "Failed to create a thread in the process.");
 	mango_create_error(FailedToEnumModules, "Failed to enum process modules.");
+	mango_create_error(FailedToFindModule, "Failed to find module.");
 	mango_create_error(FailedToFindImportModule, "Failed to find imported module in IAT.");
 	mango_create_error(FailedToFindImportFunction, "Failed to find imported function in IAT.");
 	mango_create_error(FailedToResolveImport, "Failed to resolve import when manually mapping image.");

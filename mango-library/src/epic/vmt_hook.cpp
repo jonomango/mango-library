@@ -26,6 +26,8 @@ namespace mango {
 		if (options.m_replace_table) {
 			// attempt to calculate vtable size ourselves (not accurate)
 			try {
+				this->m_vtable_size = 0;
+
 				// keep increasing m_vtable_size until nullptr
 				if (process.is_64bit()) {
 					while (process.read<uint64_t>(this->m_original_vtable + this->m_vtable_size))
