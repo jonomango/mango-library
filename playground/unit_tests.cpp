@@ -60,6 +60,9 @@ void test_process(mango::Process& process) {
 	unit_test.expect_nonzero(process.is_self());
 	unit_test.expect_value(process.get_pid(), GetCurrentProcessId());
 
+	// are we a 64bit process
+	unit_test.expect_value(process.is_64bit(), sizeof(void*) == 8);
+
 	// verify that it's getting the correct process name
 	char process_name[512];
 	GetModuleBaseName(GetCurrentProcess(), 0, process_name, 512);
@@ -68,6 +71,20 @@ void test_process(mango::Process& process) {
 	// verify module addresses
 	unit_test.expect_value(process.get_module_addr(), uintptr_t(GetModuleHandle(nullptr)));
 	unit_test.expect_value(process.get_module_addr("kernel32.dll"), uintptr_t(GetModuleHandle("kernel32.dll")));
+
+	// 32bit peb
+	if (!process.is_64bit()) {
+		const auto peb = process.get_peb32();
+		unit_test.expect_value(peb.ImageBaseAddress, uintptr_t(GetModuleHandle(nullptr)));
+		unit_test.expect_value(peb.BeingDebugged, IsDebuggerPresent());
+	}
+
+	// 64bit peb
+	if (!process.is_64bit() || process.is_wow64()) {
+		const auto peb = process.get_peb64();
+		unit_test.expect_value(peb.ImageBaseAddress, uintptr_t(GetModuleHandle(nullptr)));
+		unit_test.expect_value(peb.BeingDebugged, IsDebuggerPresent());
+	}
 
 	// LoadLibrary
 	const auto kernel32dll = load_library(process, "kernel32.dll");

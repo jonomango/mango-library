@@ -60,9 +60,7 @@ int main() {
 
 	// catch any exceptions
 	try {
-		auto process = mango::Process::current();
-	} catch (mango::MangoError& e) {
-		mango::logger.error(e.what());
+		// PEB_LDR_DATA;
 	} catch (std::exception& e) {
 		mango::logger.error(e.what());
 	}

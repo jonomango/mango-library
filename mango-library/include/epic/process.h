@@ -4,9 +4,7 @@
 #include <string>
 #include <unordered_map>
 
-#include <Windows.h>
-#include <winternl.h>
-
+#include "windows_defs.h"
 #include "loaded_module.h"
 #include "../misc/misc.h"
 
@@ -54,6 +52,9 @@ namespace mango {
 		// if the Process is itself
 		bool is_self() const noexcept { return this->m_is_self; }
 
+		// process running under wow64
+		bool is_wow64() const noexcept { return this->m_is_wow64; }
+
 		// check if process is 64 or 32 bit
 		bool is_64bit() const noexcept { return this->m_is_64bit; }
 
@@ -80,6 +81,10 @@ namespace mango {
 
 		// this uses the internal list of modules to find the function address
 		uintptr_t get_proc_addr(const std::string& module_name, const std::string& func_name) const;
+
+		// peb structures
+		PEB32 get_peb32() const;
+		PEB64 get_peb64() const;
 
 		// get the address of a virtual method in an instance
 		template <typename Ret, typename Addr>
@@ -157,11 +162,20 @@ namespace mango {
 		// get the name of the process (to cache it)
 		std::string query_name() const;
 
+		// wow64 process
+		bool query_is_wow64() const;
+
 		// check whether the process is 64bit or not (to cache it)
 		bool query_is_64bit() const;
 
 		// update the internal list of module addresses
 		void query_module_addresses();
+
+		// the address of the 64bit peb
+		uintptr_t query_peb64_address() const;
+
+		// used by setup()
+		void setup_internal();
 
 		// SeDebugPrivilege
 		void set_debug_privilege(bool value) const;
@@ -170,9 +184,11 @@ namespace mango {
 		bool m_is_valid = false,
 			m_is_self = false,
 			m_free_handle = false,
+			m_is_wow64 = false,
 			m_is_64bit = false;
 		HANDLE m_handle = nullptr;
 		uint32_t m_pid = 0;
+		uintptr_t m_peb64_address = 0;
 		SetupOptions m_options;
 		ModuleAddressMap m_module_addresses; // needed for deferred loading
 		mutable ProcessModules m_modules; // mutable for deferred loading

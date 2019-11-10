@@ -36,24 +36,14 @@ namespace mango {
 		if (this->m_handle == nullptr)
 			throw InvalidProcessHandle();
 
+		this->m_options = options;
+		this->m_free_handle = true;
+		
 		// properly cleanup if an exception is thrown
 		mango::ScopeGuard _guard(&Process::release, this);
 
-		this->m_free_handle = true;
-		this->m_is_valid = true;
-		this->m_options = options;
-		this->m_pid = pid;
-		this->m_is_self = (this->m_pid == GetCurrentProcessId());
-
-		// cache some info
-		this->m_process_name = this->query_name();
-		this->m_is_64bit = this->query_is_64bit();
-
-		// update the internal list of modules
-		if (!options.m_defer_module_loading)
-			this->load_modules();
-		else
-			this->query_module_addresses();
+		// this can throw
+		this->setup_internal();
 
 		// no exception was thrown, great
 		_guard.cancel();
@@ -63,25 +53,15 @@ namespace mango {
 	void Process::setup(const HANDLE handle, const SetupOptions& options) {
 		this->release();
 
+		this->m_options = options;
+		this->m_handle = handle;
+		this->m_free_handle = false;
+
 		// properly cleanup if an exception is thrown
 		mango::ScopeGuard _guard(&Process::release, this);
 
-		this->m_handle = handle;
-		this->m_free_handle = false;
-		this->m_is_valid = true;
-		this->m_options = options;
-		this->m_pid = GetProcessId(handle);
-		this->m_is_self = (this->m_pid == GetCurrentProcessId());
-
-		// cache some info
-		this->m_process_name = this->query_name();
-		this->m_is_64bit = this->query_is_64bit();
-
-		// update the internal list of modules
-		if (!options.m_defer_module_loading)
-			this->load_modules();
-		else
-			this->query_module_addresses();
+		// this can throw
+		this->setup_internal();
 
 		// no exception was thrown, great
 		_guard.cancel();
@@ -143,6 +123,16 @@ namespace mango {
 			return 0;
 
 		return exp->m_address;
+	}
+
+	// peb structures
+	PEB32 Process::get_peb32() const {
+		if (this->is_64bit())
+			throw NotA32BitProcess();
+		return this->read<PEB32>(this->m_peb64_address + 0x1000);
+	}
+	PEB64 Process::get_peb64() const {
+		return this->read<PEB64>(this->m_peb64_address);
 	}
 
 	// read from a memory address
@@ -234,15 +224,20 @@ namespace mango {
 		return name;
 	}
 
-	// check whether the process is 64bit or not (to cache it)
-	bool Process::query_is_64bit() const {
+	// wow64 process
+	bool Process::query_is_wow64() const {
 		// check if Wow64 is present
 		BOOL is_wow64 = false;
 		if (!IsWow64Process(this->m_handle, &is_wow64))
 			throw FailedToQueryProcessArchitecture();
 
+		return is_wow64;
+	}
+
+	// check whether the process is 64bit or not (to cache it)
+	bool Process::query_is_64bit() const {
 		// 32bit process on 64bit os
-		if (is_wow64)
+		if (this->m_is_wow64)
 			return false;
 
 		SYSTEM_INFO system_info;
@@ -276,6 +271,43 @@ namespace mango {
 			// add to list
 			this->m_module_addresses[name] = uintptr_t(modules[i]);
 		}
+	}
+
+	// the address of the 64bit peb
+	uintptr_t Process::query_peb64_address() const {
+		PROCESS_BASIC_INFORMATION info;
+		if (!NT_SUCCESS(mango::NtQueryInformationProcess(this->m_handle, ProcessBasicInformation, &info, sizeof(info), nullptr)))
+			throw FailedToQueryProcessInformation();
+
+		if (sizeof(void*) == 8) { // host is a 64bit process
+			return uintptr_t(info.PebBaseAddress);
+		} else /* host is a 32bit process */ {
+			return uintptr_t(info.PebBaseAddress) - 0x1000;
+		}
+	}
+
+	// used by setup()
+	void Process::setup_internal() {
+		this->m_is_valid = true;
+		this->m_pid = GetProcessId(this->m_handle);
+		this->m_is_self = (this->m_pid == GetCurrentProcessId());
+
+		// cache some info
+		this->m_is_wow64 = this->query_is_wow64();
+		this->m_is_64bit = this->query_is_64bit();
+
+		// access a 64bit program from a 32bit program
+		if (sizeof(void*) == 4 && this->m_is_64bit)
+			throw CantSetup64From32();
+
+		this->m_process_name = this->query_name();
+		this->m_peb64_address = this->query_peb64_address();
+
+		// update the internal list of modules
+		if (!this->m_options.m_defer_module_loading)
+			this->load_modules();
+		else
+			this->query_module_addresses();
 	}
 
 	// SeDebugPrivilege

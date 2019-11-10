@@ -26,9 +26,12 @@ namespace mango {
 		const std::string m_value;
 	};
 
-	mango_create_error(NotWow64Process, "Process is not running under WOW64");
-
 	mango_create_error(FunctionAlreadyHooked, "Function is already hooked.");
+
+	mango_create_error(CantSetup64From32, "Cant setup a 64bit process from a 32bit process.");
+
+	mango_create_error(NotWow64Process, "Process is not running under WOW64.");
+	mango_create_error(NotA32BitProcess, "Process is not a 32bit process.");
 
 	mango_create_error(InvalidProcessHandle, "Failed to get a valid process handle. Usually caused by insufficient permissions or invalid process ID.");
 	mango_create_error(InvalidFileHandle, "Failed to get a valid file handle. Usually caused by a non-existant file.");

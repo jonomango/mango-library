@@ -34,4 +34,9 @@ namespace mango {
 		return syscall<NTSTATUS>(index, ThreadHandle, DesiredAccess, ObjectAttributes, ProcessHandle, 
 			StartAddress, Parameter, Flags, StackZeroBits, SizeOfStackCommit, SizeOfStackReserve, BytesBuffer);
 	}
+	NTSTATUS NtQueryInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLASS ProcessInformationClass, PVOID ProcessInformation,
+		ULONG ProcessInformationLength, PULONG ReturnLength) {
+		static const auto index = syscall_index(enc_str("NtQueryInformationProcess"));
+		return syscall<NTSTATUS>(index, ProcessHandle, ProcessInformationClass, ProcessInformation, ProcessInformationLength, ReturnLength);
+	}
 } // namespace mango
