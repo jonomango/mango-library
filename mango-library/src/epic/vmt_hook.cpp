@@ -43,12 +43,13 @@ namespace mango {
 				throw InvalidVtableSize();
 
 			// allocate a new vtable
-			this->m_vtable = process.alloc_virt_mem(this->m_vtable_size);
+			this->m_vtable = process.alloc_virt_mem(this->m_vtable_size + process.get_ptr_size());
 
-			// copy the old values to the new table
-			const auto old_table_content = std::make_unique<uint8_t[]>(this->m_vtable_size);
-			process.read(this->m_original_vtable, old_table_content.get(), this->m_vtable_size);
-			process.write(this->m_vtable, old_table_content.get(), this->m_vtable_size);
+			// copy the old values to the new table (and the rtti complete locator)
+			const auto old_table_content = std::make_unique<uint8_t[]>(this->m_vtable_size + process.get_ptr_size());
+			process.read(this->m_original_vtable - process.get_ptr_size(), old_table_content.get(), this->m_vtable_size + process.get_ptr_size());
+			process.write(this->m_vtable, old_table_content.get(), this->m_vtable_size + process.get_ptr_size());
+			this->m_vtable += process.get_ptr_size();
 
 			// swap the tables
 			this->m_process->is_64bit() ?
@@ -72,7 +73,7 @@ namespace mango {
 				this->m_process->write<uint32_t>(this->m_instance, uint32_t(this->m_original_vtable));
 
 			// free the vtable that we allocated
-			this->m_process->free_virt_mem(this->m_vtable);
+			this->m_process->free_virt_mem(this->m_vtable - this->m_process->get_ptr_size());
 		} else {
 			// unhook all hooked functions
 			for (const auto& [index, addr] : this->m_original_funcs)

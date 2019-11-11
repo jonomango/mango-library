@@ -36,13 +36,13 @@ void test_process(mango::Process& process) {
 
 	// initializing process with a bad pid should throw
 	{
-		mango::ScopeGuard fail_test([&]() { unit_test.failure(); });
+		mango::ScopeGuard _fail_test([&]() { unit_test.failure(); });
 
 		try {
 			process.setup(3);
 		} catch (mango::MangoError&) {
 			unit_test.success();
-			fail_test.cancel();
+			_fail_test.cancel();
 		}
 	}
 

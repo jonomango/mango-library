@@ -24,6 +24,66 @@ namespace mango {
 	} INITIAL_TEB, *PINITIAL_TEB;
 
 	template <typename Ptr>
+	struct _UNICODE_STRING_INTERNAL {
+		USHORT Length;
+		USHORT MaximumLength;
+		Ptr Buffer;
+	};
+
+	using UNICODE_STRING_M32 = _UNICODE_STRING_INTERNAL<uint32_t>;
+	using UNICODE_STRING_M64 = _UNICODE_STRING_INTERNAL<uint64_t>;
+
+	template <typename Ptr>
+	struct _LIST_ENTRY_INTERNAL {
+		Ptr Flink;
+		Ptr Blink;
+	};
+
+	using LIST_ENTRY_M32 = _LIST_ENTRY_INTERNAL<uint32_t>;
+	using LIST_ENTRY_M64 = _LIST_ENTRY_INTERNAL<uint64_t>;
+
+	template <typename Ptr>
+	struct _PEB_LDR_DATA_INTERNAL {
+	private:
+		uint8_t _padding_1[8];
+		Ptr _padding_2[3];
+	public:
+		_LIST_ENTRY_INTERNAL<Ptr> InMemoryOrderModuleList;
+	};
+
+	using PEB_LDR_DATA_M32 = _PEB_LDR_DATA_INTERNAL<uint32_t>;
+	using PEB_LDR_DATA_M64 = _PEB_LDR_DATA_INTERNAL<uint64_t>;
+
+	template <typename Ptr>
+	struct _LDR_DATA_TABLE_ENTRY_INTERNAL {
+	private:
+		Ptr _padding_1[2];
+	public:
+		_LIST_ENTRY_INTERNAL<Ptr> InMemoryOrderLinks;
+	private:
+		Ptr _padding_2[2];
+	public:
+		Ptr DllBase;
+	private:
+		Ptr _padding_3[2];
+	public:
+		_UNICODE_STRING_INTERNAL<Ptr> FullDllName;
+	private:
+		uint8_t _padding_4[8];
+		Ptr _padding_5[3];
+	public:
+		union {
+			ULONG CheckSum;
+			Ptr _padding_6;
+		};
+
+		ULONG TimeDateStamp;
+	};
+
+	using LDR_DATA_TABLE_ENTRY_M32 = _LDR_DATA_TABLE_ENTRY_INTERNAL<uint32_t>;
+	using LDR_DATA_TABLE_ENTRY_M64 = _LDR_DATA_TABLE_ENTRY_INTERNAL<uint64_t>;
+
+	template <typename Ptr>
 	struct _PEB_INTERNAL {
 		union {
 			Ptr _alignment;
@@ -40,8 +100,9 @@ namespace mango {
 		Ptr Ldr;
 	};
 
-	using PEB32 = _PEB_INTERNAL<uint32_t>;
-	using PEB64 = _PEB_INTERNAL<uint64_t>;
+	using PEB_M32 = _PEB_INTERNAL<uint32_t>;
+	using PEB_M64 = _PEB_INTERNAL<uint64_t>;
+
 
 	// implemented as direct syscalls
 	NTSTATUS NtReadVirtualMemory(HANDLE hProcess, LPCVOID lpBaseAddress, LPVOID lpBuffer, SIZE_T nSize, SIZE_T* lpNumberOfBytesWritten);

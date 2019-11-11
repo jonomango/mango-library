@@ -83,8 +83,8 @@ namespace mango {
 		uintptr_t get_proc_addr(const std::string& module_name, const std::string& func_name) const;
 
 		// peb structures
-		PEB32 get_peb32() const;
-		PEB64 get_peb64() const;
+		PEB_M32 get_peb32() const;
+		PEB_M64 get_peb64() const;
 
 		// get the address of a virtual method in an instance
 		template <typename Ret, typename Addr>
@@ -103,7 +103,7 @@ namespace mango {
 		// easy to use wrapper for read()
 		template <typename T, typename Addr> 
 		T read(Addr const address) const {
-			T buffer; this->read(address, &buffer, sizeof(buffer));
+			T buffer; this->read(uintptr_t(address), &buffer, sizeof(buffer));
 			return buffer;
 		}
 
@@ -116,7 +116,7 @@ namespace mango {
 		// easy to use wrapper for write()
 		template <typename T, typename Addr> 
 		void write(Addr const address, const T& value) const {
-			this->write(address, &value, sizeof(value));
+			this->write(uintptr_t(address), &value, sizeof(value));
 		}
 
 		// allocate virtual memory in the process (wrapper for VirtualAllocEx)

@@ -13,6 +13,43 @@
 #include "../../include/misc/logger.h"
 
 
+namespace {
+	// iterate over every module in the process
+	template <typename Ptr, typename Callable>
+	void iterate_modules(const mango::Process& process, Callable&& callback) {
+		using namespace mango;
+
+		// get the corresponding peb structure for the process (32bit vs 64bit)
+		_PEB_INTERNAL<Ptr> peb;
+		if constexpr (sizeof(Ptr) == 4)
+			peb = process.get_peb32();
+		else
+			peb = process.get_peb64();
+
+		// PEB_LDR_DATA
+		const auto list_head = process.read<_PEB_LDR_DATA_INTERNAL<Ptr>>(peb.Ldr).InMemoryOrderModuleList;
+		for (auto current = list_head.Flink; current != list_head.Blink;) {
+			// LDR_DATA_TABLE_ENTRY
+			const auto table_addr = current - offsetof(_LDR_DATA_TABLE_ENTRY_INTERNAL<Ptr>, InMemoryOrderLinks);
+			const auto table_entry = process.read<_LDR_DATA_TABLE_ENTRY_INTERNAL<Ptr>>(table_addr);
+
+			const auto name_addr = uintptr_t(table_entry.FullDllName.Buffer);
+			const auto name_size = size_t(table_entry.FullDllName.Length);
+
+			// read the dll name
+			const auto name_wstr = std::make_unique<wchar_t[]>(name_size + 1);
+			process.read(name_addr, name_wstr.get(), name_size);
+			name_wstr[name_size] = L'\0';
+
+			// call our callback
+			std::invoke(callback, wstr_to_str(name_wstr.get()), table_entry.DllBase);
+
+			// proceed to next entry
+			current = process.read<_LIST_ENTRY_INTERNAL<Ptr>>(current).Flink;
+		}
+	}
+} // namespace
+
 namespace mango {
 	// setup by pid
 	void Process::setup(const uint32_t pid, const SetupOptions& options) {
@@ -126,13 +163,13 @@ namespace mango {
 	}
 
 	// peb structures
-	PEB32 Process::get_peb32() const {
+	PEB_M32 Process::get_peb32() const {
 		if (this->is_64bit())
 			throw NotA32BitProcess();
-		return this->read<PEB32>(this->m_peb64_address + 0x1000);
+		return this->read<PEB_M32>(this->m_peb64_address + 0x1000);
 	}
-	PEB64 Process::get_peb64() const {
-		return this->read<PEB64>(this->m_peb64_address);
+	PEB_M64 Process::get_peb64() const {
+		return this->read<PEB_M64>(this->m_peb64_address);
 	}
 
 	// read from a memory address
@@ -250,26 +287,22 @@ namespace mango {
 		// clear any previous module addresses
 		this->m_module_addresses.clear();
 
-		DWORD size = 0;
-		HMODULE modules[1024];
-
-		// get all loaded modules
-		if (!EnumProcessModulesEx(this->m_handle, modules, sizeof(modules), &size, this->is_64bit() ? LIST_MODULES_64BIT : LIST_MODULES_32BIT))
-			throw FailedToEnumModules();
-
-		// iterate over each module
-		for (size_t i = 0; i < size / sizeof(HMODULE); ++i) {
-			// get the module name
-			char buffer[256];
-			GetModuleBaseNameA(this->m_handle, modules[i], buffer, sizeof(buffer));
-
-			std::string name(buffer);
+		const auto callback = [&](auto name, const auto base) {
+			// remove everything before the filename
+			if (const auto index = name.find_last_of('\\'); index != std::string::npos)
+				name.erase(name.begin(), name.begin() + index + 1);
 
 			// change to lowercase
 			std::transform(name.begin(), name.end(), name.begin(), std::tolower);
 
-			// add to list
-			this->m_module_addresses[name] = uintptr_t(modules[i]);
+			//logger.info(name, ":0x", std::hex, std::uppercase, base);
+			this->m_module_addresses[name] = uintptr_t(base);
+		};
+
+		if (this->is_64bit()) {
+			iterate_modules<uint64_t>(*this, callback);
+		} else {
+			iterate_modules<uint32_t>(*this, callback);
 		}
 	}
 

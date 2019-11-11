@@ -60,7 +60,7 @@ int main() {
 
 	// catch any exceptions
 	try {
-		// PEB_LDR_DATA;
+
 	} catch (std::exception& e) {
 		mango::logger.error(e.what());
 	}

@@ -2,6 +2,7 @@
 
 #include "../../include/epic/process.h"
 #include "../../include/misc/error_codes.h"
+#include "../../include/misc/misc.h"
 
 #include <memory>
 
@@ -33,9 +34,7 @@ namespace mango {
 	// these two patterns are treated the same: "25 ? F3 ? 14 ? ? C9" && "25?f3?14??c9"
 	uintptr_t find_pattern(Process& process, const std::string& module_name, const std::string_view& pattern) {
 		const auto values = find_all_patterns(process, module_name, pattern);
-		if (values.empty())
-			return 0;
-		return values.front();
+		return values.empty() ? 0 : values.front();
 	}
 
 	// same as find_pattern() but returns all occurences
@@ -52,25 +51,28 @@ namespace mango {
 		const auto buffer = std::make_unique<uint8_t[]>(end - start);
 		process.read(start, buffer.get(), end - start);
 
-		std::vector<uintptr_t> m_found_patterns;
+		std::vector<uintptr_t> found_patterns;
 
 		// check for matching sequence
 		for (uintptr_t current = start; current < (end - pattern.size()); current += 1) {
-			size_t j = 0;
-			bool pattern_matches = true;
+			// add pattern at the end of scope (unless canceled of course)
+			ScopeGuard _add_pattern([&]() { found_patterns.emplace_back(current); });
+
+			// check if pattern matches
+			size_t current_byte_index = 0;
 			for (size_t i = 0; i < pattern.size(); ++i) {
 				if (pattern[i] == ' ')
 					continue;
 
 				// wildcard
-				j += 1;
+				current_byte_index += 1;
 				if (pattern[i] == '?')
 					continue;
 
 				// sanity check 
-				const auto curr_index = (current - start) + j - 1;
+				const auto curr_index = (current - start) + current_byte_index - 1;
 				if (curr_index >= end - start)
-					return m_found_patterns;
+					return found_patterns;
 
 				// check if byte matches
 				if (buffer[curr_index] == parse_byte(pattern[i], pattern[i + 1])) {
@@ -78,15 +80,11 @@ namespace mango {
 					continue;
 				}
 
-				pattern_matches = false;
+				_add_pattern.cancel();
 				break;
 			}
-
-			// found pattern
-			if (pattern_matches)
-				m_found_patterns.emplace_back(current);
 		}
 
-		return m_found_patterns;
+		return found_patterns;
 	}
 } // namespace mango

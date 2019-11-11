@@ -11,37 +11,30 @@
 
 #undef min
 
-
-namespace mango {
-	struct ManualMapData32 {
-		uint32_t m_module_base;
-		uint32_t m_get_proc_address;
-		uint32_t m_load_library;
-	};
-	struct ManualMapData64 {
-		uint64_t m_module_base;
-		uint64_t m_get_proc_address;
-		uint64_t m_load_library;
+namespace {
+	template <typename Ptr>
+	struct ManualMapData {
+		Ptr m_module_base;
+		Ptr m_get_proc_address;
+		Ptr m_load_library;
 	};
 
 	// in case i need to modify the shellcode later
 #if false
 	DWORD WINAPI manual_map_thread(void* arg) {
 		static constexpr bool is64bit = (sizeof(void*) == 8);
-		using ptr = typename std::conditional<is64bit, uint64_t, uint32_t>::type;
-		using pimage_nt_headers = typename std::conditional<is64bit, PIMAGE_NT_HEADERS64, PIMAGE_NT_HEADERS32>::type;
-		using image_thunk_data = typename std::conditional<is64bit, IMAGE_THUNK_DATA64, IMAGE_THUNK_DATA32>::type;
-		using manual_map_data = typename std::conditional<is64bit, ManualMapData64, ManualMapData32>::type;
+		using Ptr = std::conditional_t<is64bit, uint64_t, uint32_t>;
+		using PImageNtHeaders = std::conditional_t<is64bit, PIMAGE_NT_HEADERS64, PIMAGE_NT_HEADERS32>;
+		using ImageThunkData = std::conditional_t<is64bit, IMAGE_THUNK_DATA64, IMAGE_THUNK_DATA32>;
 
-		const auto data = reinterpret_cast<manual_map_data*>(arg);
-
+		const auto data = reinterpret_cast<ManualMapData<Ptr>*>(arg);
 		const auto dos_header = PIMAGE_DOS_HEADER(data->m_module_base);
-		const auto nt_header = pimage_nt_headers(data->m_module_base + dos_header->e_lfanew);
+		const auto nt_header = PImageNtHeaders(data->m_module_base + dos_header->e_lfanew);
 
 		// for fixing relocations
 		const auto base_reloc_dir = nt_header->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC];
 		auto image_base_reloc = PIMAGE_BASE_RELOCATION(data->m_module_base + base_reloc_dir.VirtualAddress);
-		const auto delta = ptr(data->m_module_base - nt_header->OptionalHeader.ImageBase);
+		const auto delta = Ptr(data->m_module_base - nt_header->OptionalHeader.ImageBase);
 
 		// fix up relocations
 		while (image_base_reloc->VirtualAddress) {
@@ -55,7 +48,7 @@ namespace mango {
 						continue;
 
 					const auto rva = image_base_reloc->VirtualAddress + (relocations[i] & 0xFFF);
-					*reinterpret_cast<ptr*>(data->m_module_base + rva) += delta;
+					*reinterpret_cast<Ptr*>(data->m_module_base + rva) += delta;
 				}
 			}
 
@@ -76,16 +69,16 @@ namespace mango {
 			const auto hmodule = ((decltype(&LoadLibraryA))data->m_load_library)(module_name);
 
 			// iterate through each thunk
-			for (uintptr_t j = 0; true; j += sizeof(image_thunk_data)) {
-				const auto orig_thunk = *reinterpret_cast<ptr*>(data->m_module_base + iat_entry->OriginalFirstThunk + j);
+			for (uintptr_t j = 0; true; j += sizeof(ImageThunkData)) {
+				const auto orig_thunk = *reinterpret_cast<Ptr*>(data->m_module_base + iat_entry->OriginalFirstThunk + j);
 				if (!orig_thunk || orig_thunk > nt_header->OptionalHeader.SizeOfImage)
 					break;
 
-				auto thunk = reinterpret_cast<image_thunk_data*>(data->m_module_base + iat_entry->FirstThunk + j);
+				auto thunk = reinterpret_cast<ImageThunkData*>(data->m_module_base + iat_entry->FirstThunk + j);
 
 				// IMAGE_IMPORT_BY_NAME::Name
 				const auto func_name = reinterpret_cast<const char*>(data->m_module_base + uintptr_t(orig_thunk) + 2);
-				thunk->u1.Function = ptr(((decltype(&GetProcAddress))data->m_get_proc_address)(hmodule, func_name));
+				thunk->u1.Function = Ptr(((decltype(&GetProcAddress))data->m_get_proc_address)(hmodule, func_name));
 			}
 		}
 
@@ -99,21 +92,21 @@ namespace mango {
 	void end_stub() {}
 #endif
 
+	// the real "meat" of manual_map()
 	template <bool is64bit>
-	uintptr_t manual_map_internal(const Process& process, const uint8_t* const image) {
-		using Ptr = typename std::conditional<is64bit, uint64_t, uint32_t>::type;
-		using PImageNtHeaders = typename std::conditional<is64bit, PIMAGE_NT_HEADERS64, PIMAGE_NT_HEADERS32>::type;
-		using ManualMapData = typename std::conditional<is64bit, ManualMapData64, ManualMapData32>::type;
+	uintptr_t manual_map_internal(const mango::Process& process, const uint8_t* const image) {
+		using Ptr = std::conditional_t<is64bit, uint64_t, uint32_t>;
+		using PImageNtHeaders = std::conditional_t<is64bit, PIMAGE_NT_HEADERS64, PIMAGE_NT_HEADERS32>;
 
 		// dos header
 		const auto dos_header = PIMAGE_DOS_HEADER(image);
 		if (dos_header->e_magic != IMAGE_DOS_SIGNATURE)
-			throw InvalidPEHeader();
+			throw mango::InvalidPEHeader();
 
 		// nt header
 		const auto nt_header = PImageNtHeaders(image + dos_header->e_lfanew);
 		if (nt_header->Signature != IMAGE_NT_SIGNATURE)
-			throw InvalidPEHeader();
+			throw mango::InvalidPEHeader();
 
 		// base address of the module in memory
 		const auto module_base = process.alloc_virt_mem(nt_header->OptionalHeader.SizeOfImage, PAGE_EXECUTE_READWRITE);
@@ -129,7 +122,7 @@ namespace mango {
 		}
 
 		// shellcode for the loader thread
-		Shellcode shellcode;
+		mango::Shellcode shellcode;
 		if (process.is_64bit()) {
 			shellcode.push(
 				"\x40\x56\x57\x41\x55\x41\x56\x41\x57\x48\x83\xEC\x20\x4C\x8B\x09\x48\x8B\xF1\x4D\x8B\xD1\x4D\x63",
@@ -174,7 +167,7 @@ namespace mango {
 		}
 
 		// arguments to pass to the loader thread
-		ManualMapData data;
+		ManualMapData<Ptr> data;
 		data.m_module_base = Ptr(module_base);
 		data.m_get_proc_address = Ptr(process.get_proc_addr(enc_str("kernel32.dll"), enc_str("GetProcAddress")));
 		data.m_load_library = Ptr(process.get_proc_addr(enc_str("kernel32.dll"), enc_str("LoadLibraryA")));
@@ -184,10 +177,12 @@ namespace mango {
 		process.write(thread_argument, data);
 
 		shellcode.execute(process, thread_argument);
-		
+
 		return module_base;
 	}
+} // namespace
 
+namespace mango {
 	// inject a dll into another process (using LoadLibrary)
 	uintptr_t load_library(const Process& process, const std::string& dll_path) {
 		const auto func_addr = process.get_proc_addr(enc_str("kernel32.dll"), enc_str("LoadLibraryA"));

@@ -13,9 +13,9 @@ namespace mango {
 	template <bool is64bit>
 	void setup_internal(LoadedModule* loaded_module, const Process& process, const uintptr_t address) {
 		// architecture dependent types
-		using ImageNtHeaders = typename std::conditional<is64bit, IMAGE_NT_HEADERS64, IMAGE_NT_HEADERS32>::type;
-		using ImageOptionalHeader = typename std::conditional<is64bit, IMAGE_OPTIONAL_HEADER64, IMAGE_OPTIONAL_HEADER32>::type;
-		using ImageThunkData = typename std::conditional<is64bit, uint64_t, uint32_t>::type;
+		using ImageNtHeaders = std::conditional_t<is64bit, IMAGE_NT_HEADERS64, IMAGE_NT_HEADERS32>;
+		using ImageOptionalHeader = std::conditional_t<is64bit, IMAGE_OPTIONAL_HEADER64, IMAGE_OPTIONAL_HEADER32>;
+		using ImageThunkData = std::conditional_t<is64bit, uint64_t, uint32_t>;
 
 		const auto dos_header = process.read<IMAGE_DOS_HEADER>(address);
 		const auto nt_header = process.read<ImageNtHeaders>(address + dos_header.e_lfanew);

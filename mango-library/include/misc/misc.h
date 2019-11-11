@@ -1,8 +1,9 @@
 #pragma once
 
 #include <type_traits>
-#include <cstring>
 #include <functional>
+#include <cstring>
+#include <string>
 
 
 namespace mango {
@@ -24,6 +25,10 @@ namespace mango {
 		if constexpr (count > 0)
 			_for_constexpr(std::forward<Callable>(callable), Start, Inc, std::make_index_sequence<count>());
 	}
+
+	// std::wstring and std::string conversions
+	std::wstring str_to_wstr(const std::string& str);
+	std::string wstr_to_str(const std::wstring& str);
 
 	// seems pretty useless at first, but its needed for the automatic size deduction for strings with null chars (ex: shellcode)
 	class StringWrapper {

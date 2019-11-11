@@ -13,8 +13,8 @@
 // kinda sucks that we have to use a macro but whatever
 #define enc_str(str)\
 (([]() {\
-	constexpr mango::_EncryptedString<sizeof(str)> _encrypted(str);\
-	return _encrypted();\
+	constexpr mango::_EncryptedString<sizeof(str)> _encrypted_str(str);\
+	return _encrypted_str();\
 })())\
 
 
@@ -24,17 +24,17 @@ namespace mango {
 	class _EncryptedString {
 	public:
 		// encrypt the string in the constructor, at compile time (hopefully)
-		constexpr _EncryptedString(const char(&str)[Size]) : m_key(mango::compile_time_key(Size - 1)), m_data({}) {
+		constexpr _EncryptedString(const char(&str)[Size]) : m_key(compile_time_key(Size - 1)), m_data({}) {
 			// pack the string into 64-bit blocks
 			const auto size = Size - 1;
-			mango::for_constexpr<0, Size - 1, 1>([&](const size_t i) {
+			for_constexpr<0, Size - 1, 1>([&](const size_t i) {
 				if (i % 8 == 0)
 					this->m_data[i / 8] = 0;
 				this->m_data[i / 8] += uint64_t(str[i]) << ((i % 8) * 8);
 			});
 
 			// encrypt each block
-			mango::for_constexpr<0, (Size + 6) / 8, 1>([&](const size_t i) {
+			for_constexpr<0, (Size + 6) / 8, 1>([&](const size_t i) {
 				this->m_data[i] = (this->m_data[i] + (this->m_key * i)) ^ (this->m_key + i);
 			});
 		}
