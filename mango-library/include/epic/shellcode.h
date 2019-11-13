@@ -4,8 +4,10 @@
 #include <array>
 #include <ostream>
 #include <iostream>
+#include <assert.h>
 
 #include "../misc/misc.h"
+#include "../misc/math.h"
 
 
 namespace mango {
@@ -88,17 +90,20 @@ namespace mango {
 
 				// copy into this->m_data
 				memcpy_s(this->m_data.data() + old_size, length, value.get_str(), length);
-			} else if constexpr ((std::is_array_v<Type> || is_stdarray<Type>::value) && sizeof(value[0]) == 1) { // byte arrays
+			} else if constexpr ((std::is_array_v<Type> || is_stdcontainer<Type>::value) && sizeof(value[0]) == 1) { // byte arrays
 				auto length = sizeof(value) - 1;
-				if constexpr (is_stdarray<Type>::value)
+				const void* data = &value;
+				if constexpr (is_stdcontainer<Type>::value) {
 					length = value.size();
+					data = value.data();
+				}
 
 				// resize
 				const auto old_size = this->m_data.size();
 				this->m_data.resize(this->m_data.size() + length);
 
 				// copy into this->m_data
-				memcpy_s(this->m_data.data() + old_size, length, &value, length);
+				memcpy_s(this->m_data.data() + old_size, length, data, length);
 			} else { // other types
 				static_assert(false, "Only integral types or byte arrays allowed");
 			}
@@ -129,12 +134,51 @@ namespace mango {
 				"\xCB";                        // retf
 		}
 
+		// example output: "AAAABAAACAAA"
+		template <size_t size, size_t block_size = 4>
+		static constexpr std::array<uint8_t, size> cyclic() {
+			static_assert(size > 0);
+			static_assert(block_size > 0);
+			static_assert(size % block_size == 0);
+
+			std::array<uint8_t, size> data;
+			for (size_t i = 0; i < size; i += block_size) {
+				const auto current = i / block_size;
+				for (size_t j = 0; j < block_size; ++j)
+					data[i + j] = uint8_t('A' + (current / math::pow(26, j)) % 26);
+			}
+
+			return data;
+		}
+
+		// the offset from the start of a cyclic shellcode
+		template <size_t block_size = 4>
+		static constexpr uintptr_t cyclic_offset(const std::array<uint8_t, block_size>& value) {
+			uintptr_t offset = 0;
+			for (size_t i = 0; i < block_size; ++i)
+				offset += uintptr_t(value[i] - 'A') * math::pow(26, i);
+			return offset;
+		}
+
+		template <typename T>
+		static constexpr uintptr_t cyclic_offset(T&& value) {
+			uintptr_t offset = 0;
+			for (size_t i = 0; i < sizeof(T); ++i)
+				offset += uintptr_t(uint8_t(value >> (8 * i)) - 'A') * math::pow(26, i);
+			return offset * sizeof(T);
+		}
+
 	private:
 		template<class T>
-		struct is_stdarray : std::false_type {};
+		struct is_stdcontainer : std::false_type {};
 
+		// std::array
 		template<class T, std::size_t N>
-		struct is_stdarray<std::array<T, N>> : std::true_type {};
+		struct is_stdcontainer<std::array<T, N>> : std::true_type {};
+
+		// std::vector
+		template<class T>
+		struct is_stdcontainer<std::vector<T>> : std::true_type {};
 
 	private:
 		ShellcodeData m_data;

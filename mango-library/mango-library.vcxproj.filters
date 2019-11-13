@@ -113,6 +113,9 @@
     <ClInclude Include="include\epic\unused_memory.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\misc\math.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <MASM Include="asm\syscall-x64.asm">

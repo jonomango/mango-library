@@ -12,13 +12,23 @@
 namespace mango {
 	class Process {
 	public:
-		using ProcessModules = std::unordered_map<std::string, LoadedModule>;
-		using ModuleAddressMap = std::unordered_map<std::string, uintptr_t>;
+		struct HandleInfo {
+			HANDLE m_handle;
+			uint8_t m_type;
+			ACCESS_MASK m_access;
+		};
 
 		struct SetupOptions {
 			// lazy loading, only load modules when they are requested
 			bool m_defer_module_loading = true;
+
+			// the access mask to open the process with
+			ACCESS_MASK m_handle_access = PROCESS_ALL_ACCESS;
 		};
+
+		using ProcessHandles = std::vector<HandleInfo>;
+		using ProcessModules = std::unordered_map<std::string, LoadedModule>;
+		using ModuleAddressMap = std::unordered_map<std::string, uintptr_t>;
 
 	public:
 		Process() = default; // left in an invalid state
@@ -148,6 +158,12 @@ namespace mango {
 			this->create_remote_thread(reinterpret_cast<void*>(address), reinterpret_cast<void*>(argument));
 		}
 
+		// get the handles that the process currently has open
+		ProcessHandles get_open_handles() const;
+
+		// SeDebugPrivilege
+		static void set_debug_privilege(const bool value);
+
 		// updates the internal list of modules
 		void load_modules();
 
@@ -176,9 +192,6 @@ namespace mango {
 
 		// used by setup()
 		void setup_internal();
-
-		// SeDebugPrivilege
-		void set_debug_privilege(bool value) const;
 
 	private:
 		bool m_is_valid = false,

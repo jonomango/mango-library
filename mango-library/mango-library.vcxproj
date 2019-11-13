@@ -36,6 +36,7 @@
     <ClInclude Include="include\misc\color.h" />
     <ClInclude Include="include\misc\error_codes.h" />
     <ClInclude Include="include\misc\logger.h" />
+    <ClInclude Include="include\misc\math.h" />
     <ClInclude Include="include\misc\misc.h" />
     <ClInclude Include="include\misc\unit_test.h" />
     <ClInclude Include="include\misc\vector.h" />

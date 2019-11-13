@@ -29,14 +29,22 @@ namespace mango {
 		return syscall<NTSTATUS>(index, ProcessHandle, BaseAddress, NumberOfBytesToProtect, NewAccessProtection, OldAccessProtection);
 	}
 	NTSTATUS NtCreateThreadEx(PHANDLE ThreadHandle, ACCESS_MASK DesiredAccess, PVOID ObjectAttributes, HANDLE ProcessHandle, PVOID StartAddress,
-			PVOID Parameter, ULONG Flags, SIZE_T StackZeroBits, SIZE_T SizeOfStackCommit, SIZE_T SizeOfStackReserve, PVOID BytesBuffer) {
+		PVOID Parameter, ULONG Flags, SIZE_T StackZeroBits, SIZE_T SizeOfStackCommit, SIZE_T SizeOfStackReserve, PVOID BytesBuffer) {
 		static const auto index = syscall_index(enc_str("NtCreateThreadEx"));
-		return syscall<NTSTATUS>(index, ThreadHandle, DesiredAccess, ObjectAttributes, ProcessHandle, 
+		return syscall<NTSTATUS>(index, ThreadHandle, DesiredAccess, ObjectAttributes, ProcessHandle,
 			StartAddress, Parameter, Flags, StackZeroBits, SizeOfStackCommit, SizeOfStackReserve, BytesBuffer);
 	}
 	NTSTATUS NtQueryInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLASS ProcessInformationClass, PVOID ProcessInformation,
 		ULONG ProcessInformationLength, PULONG ReturnLength) {
 		static const auto index = syscall_index(enc_str("NtQueryInformationProcess"));
 		return syscall<NTSTATUS>(index, ProcessHandle, ProcessInformationClass, ProcessInformation, ProcessInformationLength, ReturnLength);
+	}
+	NTSTATUS NtOpenProcess(PHANDLE ProcessHandle, ACCESS_MASK DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes, PCLIENT_ID ClientId) {
+		static const auto index = syscall_index(enc_str("NtOpenProcess"));
+		return syscall<NTSTATUS>(index, ProcessHandle, DesiredAccess, ObjectAttributes, ClientId);
+	}
+	NTSTATUS NtQuerySystemInformation(SYSTEM_INFORMATION_CLASS SystemInformationClass, PVOID SystemInformation, ULONG SystemInformationLength, PULONG ReturnLength) {
+		static const auto index = syscall_index(enc_str("NtQuerySystemInformation"));
+		return syscall<NTSTATUS>(index, SystemInformationClass, SystemInformation, SystemInformationLength, ReturnLength);
 	}
 } // namespace mango

@@ -14,13 +14,21 @@
 
 namespace mango {
 	// vector class for math stuffz
-	template <typename T, const size_t C>
+	template <typename T, size_t C>
 	class Vector : public std::array<T, C> {
 	public:
 		// std::array::fill() is not constexpr btw
 		constexpr explicit Vector(const T& scalar = T(0)) noexcept { 
 			for_constexpr<0, C, 1>([&](const size_t i) {
 				this->operator[](i) = scalar;
+			});
+		}
+
+		// copy constructor
+		template <typename X>
+		constexpr explicit Vector(const Vector<X, C>& other) noexcept {
+			for_constexpr<0, C, 1>([&](const size_t i) {
+				this->operator[](i) = T(other[i]);
 			});
 		}
 

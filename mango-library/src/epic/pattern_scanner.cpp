@@ -55,10 +55,8 @@ namespace mango {
 
 		// check for matching sequence
 		for (uintptr_t current = start; current < (end - pattern.size()); current += 1) {
-			// add pattern at the end of scope (unless canceled of course)
-			ScopeGuard _add_pattern([&]() { found_patterns.emplace_back(current); });
-
 			// check if pattern matches
+			bool does_match = true;
 			size_t current_byte_index = 0;
 			for (size_t i = 0; i < pattern.size(); ++i) {
 				if (pattern[i] == ' ')
@@ -80,9 +78,12 @@ namespace mango {
 					continue;
 				}
 
-				_add_pattern.cancel();
+				does_match = false;
 				break;
 			}
+
+			if (does_match)
+				found_patterns.emplace_back(current);
 		}
 
 		return found_patterns;

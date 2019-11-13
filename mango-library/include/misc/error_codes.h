@@ -1,29 +1,48 @@
 #pragma once
 
 #include <exception>
+#include <sstream>
 
 #include "../crypto/string_encryption.h"
 
+
+// for passing to our custom exceptions
+#define mango_format_ntstatus(status) enc_str("NTSTATUS = 0x"), std::hex, std::uppercase, status
 
 // can't really do this without a macro, oh well
 #define mango_create_error(name, value)\
 class name : public mango::MangoError {\
 public:\
-	name() : mango::MangoError(enc_str(value)) {}\
-	name(const std::string& extra) : mango::MangoError(enc_str(value) + " " + extra) {}\
+	template <typename ...Args>\
+	name(Args&& ...info) : mango::MangoError(enc_str(value), info...) {}\
 };
 
 namespace mango {
 	// base class of all mango-library exception
 	class MangoError : public std::exception {
 	public:
-		MangoError(const std::string& str) : m_value(str) {}
-		const char* what() const noexcept override {
-			return this->m_value.c_str();
+		template <typename ...Args>
+		MangoError(const std::string& error, Args&& ...info) {
+			this->m_value = error;
+
+			// additional info
+			std::ostringstream stream;
+			(stream << ... << info);
+			this->m_info = stream.str();
 		}
 
+		// get the error message
+		const char* what() const noexcept override { return this->m_value.c_str(); }
+
+		// additional info
+		const std::string& info() const noexcept { return this->m_info; }
+
+		// concat what() + info()
+		std::string full_error() const noexcept { return this->m_value + enc_str(" Info: ") + this->m_info; }
+
 	protected:
-		const std::string m_value;
+		std::string m_value,
+			m_info;
 	};
 
 	mango_create_error(FunctionAlreadyHooked, "Function is already hooked.");
@@ -33,8 +52,8 @@ namespace mango {
 	mango_create_error(NotWow64Process, "Process is not running under WOW64.");
 	mango_create_error(NotA32BitProcess, "Process is not a 32bit process.");
 
-	mango_create_error(InvalidProcessHandle, "Failed to get a valid process handle. Usually caused by insufficient permissions or invalid process ID.");
-	mango_create_error(InvalidFileHandle, "Failed to get a valid file handle. Usually caused by a non-existant file.");
+	mango_create_error(InvalidProcessHandle, "Failed to get a valid process handle, usually caused by insufficient permissions or invalid process ID.");
+	mango_create_error(InvalidFileHandle, "Failed to get a valid file handle, usually caused by a non-existant file.");
 	mango_create_error(InvalidFileSize, "Invalid file size.");
 	mango_create_error(InvalidPEHeader, "Invalid PE header.");
 	mango_create_error(InvalidVtableSize, "Invalid VTable size, caused when VTable size is 0.");
@@ -42,6 +61,7 @@ namespace mango {
 	mango_create_error(FailedToQueryProcessArchitecture, "Failed to query process architecture type (x64 or x86).");
 	mango_create_error(FailedToQueryProcessName, "Failed to query process name.");
 	mango_create_error(FailedToQueryProcessInformation, "Failed to query process information.");
+	mango_create_error(FailedToQuerySystemInformation, "Failed to query system information.");
 	mango_create_error(FailedToReadMemory, "Failed to read process memory.");
 	mango_create_error(FailedToWriteMemory, "Failed to write to process memory.");
 	mango_create_error(FailedToAllocateVirtualMemory, "Failed to allocate virtual memory.");

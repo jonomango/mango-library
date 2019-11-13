@@ -7,26 +7,26 @@
 
 
 namespace mango {
-	enum class MEMORY_INFORMATION_CLASS {
+	enum MEMORY_INFORMATION_CLASS {
 		MemoryBasicInformation
 	};
 	typedef struct _CLIENT_ID {
-		PVOID UniqueProcess;
-		PVOID UniqueThread;
+		void* UniqueProcess;
+		void* UniqueThread;
 	} CLIENT_ID, *PCLIENT_ID;
 
 	typedef struct _INITIAL_TEB {
-		PVOID StackBase;
-		PVOID StackLimit;
-		PVOID StackCommit;
-		PVOID StackCommitMax;
-		PVOID StackReserved;
+		void* StackBase;
+		void* StackLimit;
+		void* StackCommit;
+		void* StackCommitMax;
+		void* StackReserved;
 	} INITIAL_TEB, *PINITIAL_TEB;
 
 	template <typename Ptr>
 	struct _UNICODE_STRING_INTERNAL {
-		USHORT Length;
-		USHORT MaximumLength;
+		uint16_t Length;
+		uint16_t MaximumLength;
 		Ptr Buffer;
 	};
 
@@ -73,11 +73,11 @@ namespace mango {
 		Ptr _padding_5[3];
 	public:
 		union {
-			ULONG CheckSum;
+			uint32_t CheckSum;
 			Ptr _padding_6;
 		};
 
-		ULONG TimeDateStamp;
+		uint32_t TimeDateStamp;
 	};
 
 	using LDR_DATA_TABLE_ENTRY_M32 = _LDR_DATA_TABLE_ENTRY_INTERNAL<uint32_t>;
@@ -103,6 +103,21 @@ namespace mango {
 	using PEB_M32 = _PEB_INTERNAL<uint32_t>;
 	using PEB_M64 = _PEB_INTERNAL<uint64_t>;
 
+	struct SYSTEM_HANDLE_TABLE_ENTRY_INFO {
+		DWORD ProcessId;
+		BYTE ObjectTypeNumber;
+		BYTE Flags;
+		WORD Handle;
+		PVOID Object;
+		ACCESS_MASK GrantedAccess;
+	};
+
+	typedef struct _SYSTEM_HANDLE_INFORMATION {
+		DWORD HandleCount;
+		SYSTEM_HANDLE_TABLE_ENTRY_INFO Handles[1];
+	} SYSTEM_HANDLE_INFORMATION, *PSYSTEM_HANDLE_INFORMATION;
+
+	static constexpr auto SystemHandleInformation = SYSTEM_INFORMATION_CLASS(16);
 
 	// implemented as direct syscalls
 	NTSTATUS NtReadVirtualMemory(HANDLE hProcess, LPCVOID lpBaseAddress, LPVOID lpBuffer, SIZE_T nSize, SIZE_T* lpNumberOfBytesWritten);
@@ -115,4 +130,6 @@ namespace mango {
 		PVOID Parameter, ULONG Flags, SIZE_T StackZeroBits, SIZE_T SizeOfStackCommit, SIZE_T SizeOfStackReserve, PVOID BytesBuffer);
 	NTSTATUS NtQueryInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLASS ProcessInformationClass, PVOID ProcessInformation,
 		ULONG ProcessInformationLength, PULONG ReturnLength);
+	NTSTATUS NtOpenProcess(PHANDLE ProcessHandle, ACCESS_MASK DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes, PCLIENT_ID ClientId);
+	NTSTATUS NtQuerySystemInformation(SYSTEM_INFORMATION_CLASS SystemInformationClass, PVOID SystemInformation, ULONG SystemInformationLength, PULONG ReturnLength);
 } // namespace mango

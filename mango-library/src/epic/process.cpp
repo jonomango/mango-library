@@ -55,35 +55,31 @@ namespace mango {
 	void Process::setup(const uint32_t pid, const SetupOptions& options) {
 		this->release();
 
-		this->set_debug_privilege(true);
+		// set debug privileges
+		Process::set_debug_privilege(true);
+		ScopeGuard _guard_one(&Process::set_debug_privilege, false);
+
+		// parameters for NtOpenProcess()
+#pragma warning(suppress: 4312) // conversion from 'const uint32_t' to 'PVOID' of greater size
+		CLIENT_ID client_id = { PVOID(pid) };
+		OBJECT_ATTRIBUTES object_attributes = { sizeof(object_attributes) };
 
 		// open a handle to the process
-		this->m_handle = OpenProcess(
-			PROCESS_VM_READ | // ReadProcessMemory
-			PROCESS_VM_WRITE | // WriteProcessMemory
-			PROCESS_VM_OPERATION | // VirtualAllocEx / VirtualProtectEx
-			PROCESS_QUERY_INFORMATION | // QueryFullProcessImageName
-			PROCESS_CREATE_THREAD, // CreateRemoteThread
-			FALSE, pid
-		);
+		const auto status = NtOpenProcess(&this->m_handle, options.m_handle_access, &object_attributes, &client_id);
+		if (!NT_SUCCESS(status))
+			throw InvalidProcessHandle(mango_format_ntstatus(status));
 
-		this->set_debug_privilege(false);
-
-		// whether we're valid or not depends entirely on OpenProcess()
-		if (this->m_handle == nullptr)
-			throw InvalidProcessHandle();
+		// properly cleanup if an exception is thrown
+		ScopeGuard _guard_two(&Process::release, this);
 
 		this->m_options = options;
 		this->m_free_handle = true;
-		
-		// properly cleanup if an exception is thrown
-		mango::ScopeGuard _guard(&Process::release, this);
 
 		// this can throw
 		this->setup_internal();
 
 		// no exception was thrown, great
-		_guard.cancel();
+		_guard_two.cancel();
 	}
 
 	// setup using an existing handle (must have atleast PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ)
@@ -95,7 +91,7 @@ namespace mango {
 		this->m_free_handle = false;
 
 		// properly cleanup if an exception is thrown
-		mango::ScopeGuard _guard(&Process::release, this);
+		ScopeGuard _guard(&Process::release, this);
 
 		// this can throw
 		this->setup_internal();
@@ -177,8 +173,8 @@ namespace mango {
 		if (this->is_self()) {
 			if (memcpy_s(buffer, size, address, size))
 				throw FailedToReadMemory();
-		} else if (!NT_SUCCESS(NtReadVirtualMemory(this->m_handle, address, buffer, size, nullptr))) {
-			throw FailedToReadMemory();
+		} else if (const auto status = NtReadVirtualMemory(this->m_handle, address, buffer, size, nullptr); !NT_SUCCESS(status)) {
+			throw FailedToReadMemory(mango_format_ntstatus(status));
 		}
 	}
 
@@ -187,49 +183,111 @@ namespace mango {
 		if (this->is_self()) {
 			if (memcpy_s(address, size, buffer, size))
 				throw FailedToWriteMemory();
-		} else if (!NT_SUCCESS(NtWriteVirtualMemory(this->m_handle, address, buffer, size, nullptr)))
-			throw FailedToWriteMemory();
+		} else if (const auto status = NtWriteVirtualMemory(this->m_handle, address, buffer, size, nullptr); !NT_SUCCESS(status))
+			throw FailedToWriteMemory(mango_format_ntstatus(status));
 	}
 
 	// allocate virtual memory in the process (wrapper for VirtualAllocEx)
 	uintptr_t Process::alloc_virt_mem(const size_t size, const uint32_t protection, const uint32_t type) const {
 		void* address = nullptr; SIZE_T region_size = size;
-		if (!NT_SUCCESS(NtAllocateVirtualMemory(this->m_handle, &address, 0, &region_size, type, protection)))
-			throw FailedToAllocateVirtualMemory();
+		if (const auto status = NtAllocateVirtualMemory(this->m_handle, &address, 0, &region_size, type, protection); !NT_SUCCESS(status))
+			throw FailedToAllocateVirtualMemory(mango_format_ntstatus(status));
 		return uintptr_t(address);
 	}
 
 	// free virtual memory in the process (wrapper for VirtualFreeEx)
 	void Process::free_virt_mem(void* const address, const size_t size, const uint32_t type) const {
 		void* base_address = address; SIZE_T region_size = size;
-		if (!NT_SUCCESS(NtFreeVirtualMemory(this->m_handle, &base_address, &region_size, type)))
-			throw FailedToFreeVirtualMemory();
+		if (const auto status = NtFreeVirtualMemory(this->m_handle, &base_address, &region_size, type); !NT_SUCCESS(status))
+			throw FailedToFreeVirtualMemory(mango_format_ntstatus(status));
 	}
 
 	// get the protection of a page of memory
 	uint32_t Process::get_mem_prot(void* const address) const {
 		MEMORY_BASIC_INFORMATION buffer;
-		if (!NT_SUCCESS(NtQueryVirtualMemory(this->m_handle, address, MEMORY_INFORMATION_CLASS::MemoryBasicInformation, &buffer, sizeof(buffer), nullptr)))
-			throw FailedToQueryMemoryProtection();
+		if (const auto status = NtQueryVirtualMemory(this->m_handle, address, MemoryBasicInformation, &buffer, sizeof(buffer), nullptr); !NT_SUCCESS(status))
+			throw FailedToQueryMemoryProtection(mango_format_ntstatus(status));
 		return buffer.Protect;
 	}
 
 	// set the protection, returns the old protection
 	uint32_t Process::set_mem_prot(void* address, const size_t size, const uint32_t protection) const {
+		DWORD OldAccessProtection = 0;
 		SIZE_T NumberOfBytesToProtect = size;
-		if (DWORD OldAccessProtection; NT_SUCCESS(NtProtectVirtualMemory(this->m_handle, &address, &NumberOfBytesToProtect, protection, &OldAccessProtection)))
-			return OldAccessProtection;
-		throw FailedToSetMemoryProtection();
+		if (const auto status = NtProtectVirtualMemory(this->m_handle, &address, &NumberOfBytesToProtect, protection, &OldAccessProtection); !NT_SUCCESS(status))
+			throw FailedToSetMemoryProtection(mango_format_ntstatus(status));
+		return OldAccessProtection;
 	}
 
 	// wrapper over CreateRemoteThread (will wait infinitely for the thread to finish)
 	void Process::create_remote_thread(void* const address, void* const argument) const {
 		HANDLE thread_handle;
-		if (!NT_SUCCESS(NtCreateThreadEx(&thread_handle, 0x1FFFFF, nullptr, this->m_handle, address, argument, 0, 0, 0, 0, nullptr)))
-			throw FailedToCreateRemoteThread();
+		if (const auto status = NtCreateThreadEx(&thread_handle, THREAD_ALL_ACCESS, nullptr, this->m_handle, address, argument, 0, 0, 0, 0, nullptr); !NT_SUCCESS(status))
+			throw FailedToCreateRemoteThread(mango_format_ntstatus(status));
 
 		WaitForSingleObject(thread_handle, INFINITE);
 		CloseHandle(thread_handle);
+	}
+
+	// get the handles that the process currently has open
+	Process::ProcessHandles Process::get_open_handles() const {
+		unsigned long buffer_size = 0xFFFF;
+		uint8_t* buffer = new uint8_t[buffer_size];
+
+		// make sure we delete the fat chunk of memory
+		ScopeGuard _guard([&]() { delete[] buffer; });
+
+		// query system info
+		NTSTATUS status = 0;
+		while ((status = mango::NtQuerySystemInformation(SystemHandleInformation, buffer, buffer_size, nullptr)) == 0xC0000004) {
+			// buffer too small; allocate larger
+			delete[] buffer; buffer = new uint8_t[buffer_size *= 2];
+		}
+
+		// failure
+		if (!NT_SUCCESS(status))
+			throw FailedToQuerySystemInformation(mango_format_ntstatus(status));
+
+		std::vector<HandleInfo> handles;
+
+		// filter out handles to the process
+		const auto handle_info = PSYSTEM_HANDLE_INFORMATION(buffer);
+		for (size_t i = 0; i < handle_info->HandleCount; ++i) {
+			const auto entry = handle_info->Handles[i];
+
+			// we only care about this process
+			if (entry.ProcessId != this->m_pid)
+				continue;
+
+			handles.push_back({ HANDLE(entry.Handle), entry.ObjectTypeNumber, entry.GrantedAccess });
+		}
+
+		return handles;
+	}
+
+	// SeDebugPrivilege
+	void Process::set_debug_privilege(const bool value) {
+		// get a process token handle
+		HANDLE token_handle = nullptr;
+		if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &token_handle))
+			throw FailedToOpenProcessToken();
+
+		// close handle when we're done
+		ScopeGuard _guard(&CloseHandle, token_handle);
+
+		// get the privilege luid
+		LUID luid;
+		if (!LookupPrivilegeValue(0, SE_DEBUG_NAME, &luid))
+			throw FailedToGetPrivilegeLUID();
+
+		TOKEN_PRIVILEGES token_privileges;
+		token_privileges.PrivilegeCount = 1;
+		token_privileges.Privileges[0].Luid = luid;
+		token_privileges.Privileges[0].Attributes = value ? SE_PRIVILEGE_ENABLED : 0;
+
+		// the goob part
+		if (!AdjustTokenPrivileges(token_handle, false, &token_privileges, 0, 0, 0))
+			throw FailedToSetTokenPrivilege();
 	}
 
 	// updates the internal list of modules
@@ -309,8 +367,8 @@ namespace mango {
 	// the address of the 64bit peb
 	uintptr_t Process::query_peb64_address() const {
 		PROCESS_BASIC_INFORMATION info;
-		if (!NT_SUCCESS(mango::NtQueryInformationProcess(this->m_handle, ProcessBasicInformation, &info, sizeof(info), nullptr)))
-			throw FailedToQueryProcessInformation();
+		if (const auto status = mango::NtQueryInformationProcess(this->m_handle, ProcessBasicInformation, &info, sizeof(info), nullptr); !NT_SUCCESS(status))
+			throw FailedToQueryProcessInformation(mango_format_ntstatus(status));
 
 		if (sizeof(void*) == 8) { // host is a 64bit process
 			return uintptr_t(info.PebBaseAddress);
@@ -341,30 +399,5 @@ namespace mango {
 			this->load_modules();
 		else
 			this->query_module_addresses();
-	}
-
-	// SeDebugPrivilege
-	void Process::set_debug_privilege(bool value) const {
-		// get a process token handle
-		HANDLE token_handle = nullptr;
-		if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &token_handle))
-			throw FailedToOpenProcessToken();
-
-		// close handle when we're done
-		ScopeGuard _guard(CloseHandle, token_handle);
-
-		// get the privilege luid
-		LUID luid;
-		if (!LookupPrivilegeValue(0, SE_DEBUG_NAME, &luid))
-			throw FailedToGetPrivilegeLUID();
-
-		TOKEN_PRIVILEGES token_privileges;
-		token_privileges.PrivilegeCount = 1;
-		token_privileges.Privileges[0].Luid = luid;
-		token_privileges.Privileges[0].Attributes = value ? SE_PRIVILEGE_ENABLED : SE_PRIVILEGE_REMOVED;
-
-		// the goob part
-		if (!AdjustTokenPrivileges(token_handle, false, &token_privileges, 0, 0, 0))
-			throw FailedToSetTokenPrivilege();
 	}
 } // namespace mango

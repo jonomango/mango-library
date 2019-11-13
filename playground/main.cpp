@@ -11,27 +11,30 @@
 #include <misc/vector.h>
 #include <misc/logger.h>
 #include <misc/error_codes.h>
+#include <misc/math.h>
 #include <crypto/string_encryption.h>
 #include <crypto/fnv_hash.h>
 
 #include "unit_tests.h"
 
 #include <thread>
+#include <sstream>
+#include <fstream>
 
 // TODO:
 // std::source_location in exceptions when c++20 comes out
 // improve manual mapper (apischema + tls callbacks + exceptions)
 
 // setup logger channels
-void setup_logger() {
-	static const auto display_info = [](const uint16_t attribute, const std::string_view prefix, std::ostringstream&& ss) {
+void setup_logger(std::ostream& stream = std::cout) {
+	static const auto display_info = [&](const uint16_t attribute, const std::string_view prefix, std::ostringstream&& ss) {
 		static const auto handle = GetStdHandle(STD_OUTPUT_HANDLE);
 
-		std::cout << '[';
+		stream << '[';
 		SetConsoleTextAttribute(handle, attribute);
-		std::cout << prefix;
+		stream << prefix;
 		SetConsoleTextAttribute(handle, FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED);
-		std::cout << "] " << ss.str() << std::endl;
+		stream << "] " << ss.str() << std::endl;
 	};
 
 	// info channel
@@ -58,11 +61,11 @@ int main() {
 	// in case we broke some shit
 	run_unit_tests();
 
-	// catch any exceptions
+	// catch c++ exceptions
 	try {
 
-	} catch (std::exception& e) {
-		mango::logger.error(e.what());
+	} catch (mango::MangoError& e) {
+		mango::logger.error(e.full_error());
 	}
 
 	mango::logger.info("program end");
