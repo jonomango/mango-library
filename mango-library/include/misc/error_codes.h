@@ -38,7 +38,11 @@ namespace mango {
 		const std::string& info() const noexcept { return this->m_info; }
 
 		// concat what() + info()
-		std::string full_error() const noexcept { return this->m_value + enc_str(" Info: ") + this->m_info; }
+		std::string full_error() const noexcept {
+			if (!this->m_info.empty())
+				return this->m_value + enc_str(" Info: ") + this->m_info; 
+			return this->m_value;
+		}
 
 	protected:
 		std::string m_value,

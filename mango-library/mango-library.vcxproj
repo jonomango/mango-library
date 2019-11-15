@@ -21,7 +21,7 @@
   <ItemGroup>
     <ClInclude Include="include\crypto\compile_time_key.h" />
     <ClInclude Include="include\crypto\string_encryption.h" />
-    <ClInclude Include="include\crypto\fnv_hash.h" />
+    <ClInclude Include="include\misc\fnv_hash.h" />
     <ClInclude Include="include\epic\unused_memory.h" />
     <ClInclude Include="include\epic\iat_hook.h" />
     <ClInclude Include="include\epic\loader.h" />

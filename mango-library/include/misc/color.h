@@ -6,67 +6,75 @@
 namespace mango {
 	// floating-point types are in the range of [0, 1]
 	// integral types are in the range of [0, std::numeric_limits<T>::max()]
-	template <typename Ret>
-	class ColorRGBA : public Vector<Ret, 4> {
+	template <typename T>
+	class ColorRGBA : public Vector<T, 4> {
 	public:
-		constexpr ColorRGBA() : ColorRGBA(Ret(0), Ret(0), Ret(0)) { }
-		constexpr ColorRGBA(const Ret& r, const Ret& g, const Ret& b, const Ret& a)
-			: Vector<Ret, 4>(r, g, b, a) {}
+		constexpr ColorRGBA() : ColorRGBA(T(0), T(0), T(0)) { }
+		constexpr ColorRGBA(const T& r, const T& g, const T& b, const T& a)
+			: Vector<T, 4>(r, g, b, a) {}
 
 		// kinda poop but i couldn't think of a better way to implement this without using 2 contructors
-		constexpr ColorRGBA(const Ret& r, const Ret& g, const Ret& b)
-			: Vector<Ret, 4>(r, g, b) {
-			if constexpr (std::is_floating_point<Ret>::value)
-				this->alpha(Ret(1));
+		constexpr ColorRGBA(const T& r, const T& g, const T& b)
+			: Vector<T, 4>(r, g, b) {
+			if constexpr (std::is_floating_point<T>::value)
+				this->alpha(T(1));
 			else
-				this->alpha(Ret(std::numeric_limits<Ret>::max()));
+				this->alpha(T(std::numeric_limits<T>::max()));
 		}
 
 		// get and set the red component
-		const Ret& red() const { return this->at(0); }
-		void red(const Ret& value) { this->at(0) = value; }
+		const T& red() const { return this->at(0); }
+		void red(const T& value) { this->at(0) = value; }
 
 		// get and set the green component
-		const Ret& green() const { return this->at(1); }
-		void green(const Ret& value) { this->at(1) = value; }
+		const T& green() const { return this->at(1); }
+		void green(const T& value) { this->at(1) = value; }
 
 		// get and set the blue component
-		const Ret& blue() const { return this->at(2); }
-		void blue(const Ret& value) { this->at(2) = value; }
+		const T& blue() const { return this->at(2); }
+		void blue(const T& value) { this->at(2) = value; }
 
 		// get and set the alpha component
-		const Ret& alpha() const { return this->at(3); }
-		void alpha(const Ret& value) { this->at(3) = value; }
+		const T& alpha() const { return this->at(3); }
+		void alpha(const T& value) { this->at(3) = value; }
 
 	private:
 	};
 
 	// hue, saturation, brightness - all in the range of [0, 1]
-	template <typename Ret>
-	class ColorHSBA : public Vector<Ret, 4> {
+	template <typename T>
+	class ColorHSBA : public Vector<T, 4> {
 	public:
-		constexpr ColorHSBA() : ColorHSBA(Ret(0), Ret(0), Ret(0)) {}
-		constexpr ColorHSBA(const Ret& h, const Ret& s, const Ret& b, const Ret& a = Ret(1)) 
-			: Vector<Ret, 4>(h, s, b, a) {}
+		constexpr ColorHSBA() : ColorHSBA(T(0), T(0), T(0)) {}
+		constexpr ColorHSBA(const T& h, const T& s, const T& b, const T& a = T(1)) 
+			: Vector<T, 4>(h, s, b, a) {}
 
 		// get and set the hue component
-		const Ret& hue() const { return this->at(0); }
-		void hue(const Ret& value) { this->at(0) = value; }
+		const T& hue() const { return this->at(0); }
+		void hue(const T& value) { this->at(0) = value; }
 
 		// get and set the saturation component
-		const Ret& saturation() const { return this->at(1); }
-		void saturation(const Ret& value) { this->at(1) = value; }
+		const T& saturation() const { return this->at(1); }
+		void saturation(const T& value) { this->at(1) = value; }
 
 		// get and set the brightness component
-		const Ret& brightness() const { return this->at(2); }
-		void brightness(const Ret& value) { this->at(2) = value; }
+		const T& brightness() const { return this->at(2); }
+		void brightness(const T& value) { this->at(2) = value; }
 
 		// get and set the alpha component
-		const Ret& alpha() const { return this->at(3); }
-		void alpha(const Ret& value) { this->at(3) = value; }
+		const T& alpha() const { return this->at(3); }
+		void alpha(const T& value) { this->at(3) = value; }
 
 	private:
 		// only floats
-		static_assert(std::is_floating_point<Ret>::value, "Only floating-point types allowed");
+		static_assert(std::is_floating_point<T>::value, "Only floating-point types allowed");
 	};
+
+	// doesn't follow the naming scheme but whatever
+	using rgba8 = ColorRGBA<uint8_t>;
+	using rgba16 = ColorRGBA<uint16_t>;
+	using rgba32 = ColorRGBA<uint32_t>;
+
+	using hsbaf = ColorHSBA<float>;
+	using hsbad = ColorHSBA<double>;
 } // namespace mango

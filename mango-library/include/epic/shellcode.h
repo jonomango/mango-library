@@ -42,8 +42,7 @@ namespace mango {
 		static void free(const Process& process, const uintptr_t address);
 
 		// execute the shellcode in the process, basically just calls
-		// Shellcode::allocate()
-		// Shellcode::write()
+		// Shellcode::allocate_and_write()
 		// Process::create_remote_thread()
 		// Shellcode::free()
 		void execute(const Process& process, const uintptr_t argument = 0) const;

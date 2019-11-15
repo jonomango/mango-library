@@ -112,7 +112,7 @@ namespace mango {
 
 		// easy to use wrapper for read()
 		template <typename T, typename Addr> 
-		T read(Addr const address) const {
+		T read(const Addr address) const {
 			T buffer; this->read(uintptr_t(address), &buffer, sizeof(buffer));
 			return buffer;
 		}
@@ -125,7 +125,7 @@ namespace mango {
 
 		// easy to use wrapper for write()
 		template <typename T, typename Addr> 
-		void write(Addr const address, const T& value) const {
+		void write(const Addr address, const T& value) const {
 			this->write(uintptr_t(address), &value, sizeof(value));
 		}
 

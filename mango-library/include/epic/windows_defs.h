@@ -108,7 +108,7 @@ namespace mango {
 		BYTE ObjectTypeNumber;
 		BYTE Flags;
 		WORD Handle;
-		PVOID Object;
+		PVOID ObjectAddress;
 		ACCESS_MASK GrantedAccess;
 	};
 

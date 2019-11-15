@@ -8,8 +8,8 @@
 
 namespace mango {
 	// template values must be compile time constants
-	template <typename T, T Value>
-	static constexpr inline T compile_time = Value;
+	template <auto Value>
+	static constexpr inline auto compile_time = Value;
 
 	// helper function for for_constexpr
 	template <typename Callable, size_t... Is>
