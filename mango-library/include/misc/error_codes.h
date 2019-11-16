@@ -8,6 +8,7 @@
 
 // for passing to our custom exceptions
 #define mango_format_ntstatus(status) enc_str("NTSTATUS = 0x"), std::hex, std::uppercase, status
+#define mango_format_w32status(status) enc_str("Win32 error = 0x"), std::hex, std::uppercase, status
 
 // can't really do this without a macro, oh well
 #define mango_create_error(name, value)\
@@ -49,6 +50,8 @@ namespace mango {
 			m_info;
 	};
 
+	mango_create_error(IoControlFailed, "Call to DeviceIoControl failed.");
+
 	mango_create_error(FunctionAlreadyHooked, "Function is already hooked.");
 
 	mango_create_error(CantSetup64From32, "Cant setup a 64bit process from a 32bit process.");
@@ -57,7 +60,7 @@ namespace mango {
 	mango_create_error(NotA32BitProcess, "Process is not a 32bit process.");
 
 	mango_create_error(InvalidProcessHandle, "Failed to get a valid process handle, usually caused by insufficient permissions or invalid process ID.");
-	mango_create_error(InvalidFileHandle, "Failed to get a valid file handle, usually caused by a non-existant file.");
+	mango_create_error(InvalidFileHandle, "Failed to get a valid file handle.");
 	mango_create_error(InvalidFileSize, "Invalid file size.");
 	mango_create_error(InvalidPEHeader, "Invalid PE header.");
 	mango_create_error(InvalidVtableSize, "Invalid VTable size, caused when VTable size is 0.");
@@ -80,8 +83,16 @@ namespace mango {
 	mango_create_error(FailedToFindImportFunction, "Failed to find imported function in IAT.");
 	mango_create_error(FailedToResolveImport, "Failed to resolve import when manually mapping image.");
 	mango_create_error(FailedToReadFile, "Failed to read file.");
+	mango_create_error(FailedToWriteFile, "Failed to write file.");
 	mango_create_error(FailedToVerifyX64Transition, "Failed to verify against Wowx64Transition address.");
 	mango_create_error(FailedToOpenProcessToken, "Failed to open process token.");
 	mango_create_error(FailedToGetPrivilegeLUID, "Failed to get privilege LUID.");
 	mango_create_error(FailedToSetTokenPrivilege, "Failed to set token's privileges.");
+
+	mango_create_error(FailedToOpenServiceControlManager, "Failed to open service control manager.");
+	mango_create_error(FailedToOpenService, "Failed to open service.");
+	mango_create_error(FailedToCreateService, "Failed to create service.");
+	mango_create_error(FailedToStartService, "Failed to start service.");
+	mango_create_error(FailedToStopService, "Failed to stop service.");
+	mango_create_error(FailedToDeleteService, "Failed to delete service.");
 } // namespace mango

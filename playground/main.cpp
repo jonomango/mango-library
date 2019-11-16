@@ -8,6 +8,7 @@
 #include <epic/syscall_hook.h>
 #include <epic/unused_memory.h>
 #include <epic/windows_defs.h>
+#include <epic/driver.h>
 #include <misc/vector.h>
 #include <misc/logger.h>
 #include <misc/error_codes.h>
@@ -21,9 +22,11 @@
 #include <sstream>
 #include <fstream>
 
+
 // TODO:
 // std::source_location in exceptions when c++20 comes out
-// improve manual mapper (apischema + tls callbacks + exceptions)
+// improve manual mapper (apischema + tls callbacks)
+
 
 // setup logger channels
 void setup_logger(std::ostream& stream = std::cout) {
@@ -55,90 +58,25 @@ void setup_logger(std::ostream& stream = std::cout) {
 	mango::logger.success("Logging channels initialized.");
 }
 
-class DriverInterface {
-public:
-	struct SetupOptions {
-		// dwDesiredAccess
-		uint32_t m_access = GENERIC_READ | GENERIC_WRITE;
-
-		// dwFlagsAndAttributes
-		uint32_t m_attributes = FILE_ATTRIBUTE_NORMAL;
-	};
-
-public:
-	DriverInterface() = default;
-	DriverInterface(const std::string& name, const SetupOptions& options = SetupOptions()) {
-		this->setup(name, options);
-	}
-	~DriverInterface() { this->release(); }
-
-	// open a handle to the driver
-	void setup(const std::string& name, const SetupOptions& options = SetupOptions()) {
-		this->release();
-
-		// open handle
-		this->m_handle = CreateFileA(name.c_str(), options.m_access, 0, nullptr, OPEN_EXISTING, options.m_attributes, nullptr);
-		if (this->m_handle == INVALID_HANDLE_VALUE)
-			throw mango::MangoError("Invalid driver handle.");
-
-		this->m_is_valid = true;
-	}
-
-	// close the handle to the driver
-	void release() {
-		if (!this->m_is_valid)
-			return;
-
-		CloseHandle(this->m_handle);
-		this->m_is_valid = false;
-	}
-
-	// write operation
-	uint32_t write(const void* const buffer, const uint32_t size) const {
-		DWORD num_bytes_written = 0;
-		if (!WriteFile(this->m_handle, buffer, size, &num_bytes_written, nullptr))
-			throw mango::MangoError("Failed to write to driver.");
-		return num_bytes_written;
-	}
-
-	// read operation
-	uint32_t read(void* const buffer, const uint32_t size) const {
-		DWORD num_bytes_read = 0;
-		if (!ReadFile(this->m_handle, buffer, size, &num_bytes_read, nullptr))
-			throw mango::MangoError("Failed to read from driver.");
-		return num_bytes_read;
-	}
-
-	// if class is not setup or has been released
-	bool is_valid() const noexcept { return this->m_is_valid; }
-
-	// get the underlying win32 handle
-	HANDLE get_handle() const noexcept { return this->m_handle; }
-
-private:
-	HANDLE m_handle = nullptr;
-	bool m_is_valid = false;
-};
-
 int main() {
 	setup_logger();
 
 	// in case we broke some shit
-	run_unit_tests();
+	// run_unit_tests();
 
 	// catch c++ exceptions
 	try {
-		const DriverInterface driver("\\\\.\\ExampleSymLink");
+		// start up our service
+		const auto service = mango::create_and_start_service("MangoService", R"(C:\Users\realj\Desktop\testing.sys)");
+		mango::ScopeGuard _guard(&mango::stop_and_delete_service, service);
+		
+		// open a handle to our driver
+		const mango::Driver driver("\\\\.\\ExampleSymLink");
 		mango::logger.info("Success! Driver handle: ", driver.get_handle());
-
-		struct WriteInfo {
-			int m_magic_number = 69;
-		} buffer;
-
-		driver.write(&buffer, sizeof(buffer));
-		driver.read(&buffer, sizeof(buffer));
 	} catch (mango::MangoError& e) {
 		mango::logger.error(e.full_error());
+	} catch (std::exception& e) {
+		mango::logger.error(e.what());
 	}
 
 	mango::logger.info("program end");

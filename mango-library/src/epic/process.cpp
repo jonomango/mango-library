@@ -270,7 +270,7 @@ namespace mango {
 		// get a process token handle
 		HANDLE token_handle = nullptr;
 		if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &token_handle))
-			throw FailedToOpenProcessToken();
+			throw FailedToOpenProcessToken(mango_format_w32status(GetLastError()));
 
 		// close handle when we're done
 		ScopeGuard _guard(&CloseHandle, token_handle);
@@ -278,7 +278,7 @@ namespace mango {
 		// get the privilege luid
 		LUID luid;
 		if (!LookupPrivilegeValue(0, SE_DEBUG_NAME, &luid))
-			throw FailedToGetPrivilegeLUID();
+			throw FailedToGetPrivilegeLUID(mango_format_w32status(GetLastError()));
 
 		TOKEN_PRIVILEGES token_privileges;
 		token_privileges.PrivilegeCount = 1;
@@ -287,7 +287,7 @@ namespace mango {
 
 		// the goob part
 		if (!AdjustTokenPrivileges(token_handle, false, &token_privileges, 0, 0, 0))
-			throw FailedToSetTokenPrivilege();
+			throw FailedToSetTokenPrivilege(mango_format_w32status(GetLastError()));
 	}
 
 	// updates the internal list of modules
@@ -307,7 +307,7 @@ namespace mango {
 	std::string Process::query_name() const {
 		char buffer[1024];
 		if (DWORD size = sizeof(buffer); !QueryFullProcessImageName(this->m_handle, 0, buffer, &size))
-			throw FailedToQueryProcessName();
+			throw FailedToQueryProcessName(mango_format_w32status(GetLastError()));
 
 		std::string name(buffer);
 
@@ -324,7 +324,7 @@ namespace mango {
 		// check if Wow64 is present
 		BOOL is_wow64 = false;
 		if (!IsWow64Process(this->m_handle, &is_wow64))
-			throw FailedToQueryProcessArchitecture();
+			throw FailedToQueryProcessArchitecture(mango_format_w32status(GetLastError()));
 
 		return is_wow64;
 	}

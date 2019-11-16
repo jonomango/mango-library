@@ -321,7 +321,7 @@ namespace mango {
 
 		// this shellcode basically just calls LoadLibraryA()
 		if (process.is_64bit()) {
-			mango::Shellcode(
+			Shellcode(
 				"\x48\x83\xEC\x20", // sub rsp, 0x20
 				"\x48\xB9", str_address, // movabs rcx, str_address
 				"\x48\xB8", func_addr, // movabs rax, func_addr
@@ -335,7 +335,7 @@ namespace mango {
 			// the HMODULE returned by LoadLibrary
 			ret_value = uintptr_t(process.read<uint64_t>(ret_address));
 		} else {
-			mango::Shellcode(
+			Shellcode(
 				"\x68", uint32_t(str_address), // push str_address
 				"\xB8", uint32_t(func_addr), // mov eax, func_addr
 				"\xFF\xD0", // call eax
@@ -365,7 +365,7 @@ namespace mango {
 
 		// invalid handle
 		if (file_handle == INVALID_HANDLE_VALUE)
-			throw InvalidFileHandle();
+			throw InvalidFileHandle(mango_format_w32status(GetLastError()));
 
 		// make sure we close the handle!
 		ScopeGuard _guard(&CloseHandle, file_handle);
@@ -373,7 +373,7 @@ namespace mango {
 		// file size
 		const auto file_size = GetFileSize(file_handle, NULL);
 		if (file_size == INVALID_FILE_SIZE)
-			throw InvalidFileSize();
+			throw InvalidFileSize(mango_format_w32status(GetLastError()));
 
 		// allocate a buffer for the file contents
 		const auto image_buffer = std::make_unique<uint8_t[]>(file_size);
@@ -382,7 +382,7 @@ namespace mango {
 
 		// read file
 		if (DWORD num_bytes = 0; !ReadFile(file_handle, image_buffer.get(), file_size, &num_bytes, FALSE))
-			throw FailedToReadFile();
+			throw FailedToReadFile(mango_format_w32status(GetLastError()));
 
 		return manual_map(process, image_buffer.get());
 	}
