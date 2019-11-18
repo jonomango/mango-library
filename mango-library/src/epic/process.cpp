@@ -57,7 +57,7 @@ namespace mango {
 
 		// set debug privileges
 		Process::set_debug_privilege(true);
-		ScopeGuard _guard_one(&Process::set_debug_privilege, false);
+		ScopeGuard _guard(&Process::set_debug_privilege, false);
 
 		// parameters for NtOpenProcess()
 #pragma warning(suppress: 4312) // conversion from 'const uint32_t' to 'PVOID' of greater size
@@ -69,17 +69,11 @@ namespace mango {
 		if (!NT_SUCCESS(status))
 			throw InvalidProcessHandle(mango_format_ntstatus(status));
 
-		// properly cleanup if an exception is thrown
-		ScopeGuard _guard_two(&Process::release, this);
-
 		this->m_options = options;
 		this->m_free_handle = true;
 
 		// this can throw
 		this->setup_internal();
-
-		// no exception was thrown, great
-		_guard_two.cancel();
 	}
 
 	// setup using an existing handle (must have atleast PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ)
@@ -90,14 +84,8 @@ namespace mango {
 		this->m_handle = handle;
 		this->m_free_handle = false;
 
-		// properly cleanup if an exception is thrown
-		ScopeGuard _guard(&Process::release, this);
-
 		// this can throw
 		this->setup_internal();
-
-		// no exception was thrown, great
-		_guard.cancel();
 	}
 
 	// clean up
@@ -170,36 +158,22 @@ namespace mango {
 
 	// read from a memory address
 	void Process::read(const void* const address, void* const buffer, const size_t size) const {
-		if (this->is_self()) {
-			if (memcpy_s(buffer, size, address, size))
-				throw FailedToReadMemory();
-		} else if (const auto status = NtReadVirtualMemory(this->m_handle, address, buffer, size, nullptr); !NT_SUCCESS(status)) {
-			throw FailedToReadMemory(mango_format_ntstatus(status));
-		}
+		this->m_options.m_read_memory_func(this, address, buffer, size);
 	}
 
 	// write to a memory address
 	void Process::write(void* const address, const void* const buffer, const size_t size) const {
-		if (this->is_self()) {
-			if (memcpy_s(address, size, buffer, size))
-				throw FailedToWriteMemory();
-		} else if (const auto status = NtWriteVirtualMemory(this->m_handle, address, buffer, size, nullptr); !NT_SUCCESS(status))
-			throw FailedToWriteMemory(mango_format_ntstatus(status));
+		this->m_options.m_write_memory_func(this, address, buffer, size);
 	}
 
 	// allocate virtual memory in the process (wrapper for VirtualAllocEx)
-	uintptr_t Process::alloc_virt_mem(const size_t size, const uint32_t protection, const uint32_t type) const {
-		void* address = nullptr; SIZE_T region_size = size;
-		if (const auto status = NtAllocateVirtualMemory(this->m_handle, &address, 0, &region_size, type, protection); !NT_SUCCESS(status))
-			throw FailedToAllocateVirtualMemory(mango_format_ntstatus(status));
-		return uintptr_t(address);
+	void* Process::alloc_virt_mem(const size_t size, const uint32_t protection, const uint32_t type) const {
+		return this->m_options.m_allocate_memory_func(this, size, protection, type);
 	}
 
 	// free virtual memory in the process (wrapper for VirtualFreeEx)
 	void Process::free_virt_mem(void* const address, const size_t size, const uint32_t type) const {
-		void* base_address = address; SIZE_T region_size = size;
-		if (const auto status = NtFreeVirtualMemory(this->m_handle, &base_address, &region_size, type); !NT_SUCCESS(status))
-			throw FailedToFreeVirtualMemory(mango_format_ntstatus(status));
+		this->m_options.m_free_memory_func(this, address, size, type);
 	}
 
 	// get the protection of a page of memory
@@ -221,12 +195,7 @@ namespace mango {
 
 	// wrapper over CreateRemoteThread (will wait infinitely for the thread to finish)
 	void Process::create_remote_thread(void* const address, void* const argument) const {
-		HANDLE thread_handle;
-		if (const auto status = NtCreateThreadEx(&thread_handle, THREAD_ALL_ACCESS, nullptr, this->m_handle, address, argument, 0, 0, 0, 0, nullptr); !NT_SUCCESS(status))
-			throw FailedToCreateRemoteThread(mango_format_ntstatus(status));
-
-		WaitForSingleObject(thread_handle, INFINITE);
-		CloseHandle(thread_handle);
+		this->m_options.m_create_remote_thread_func(this, address, argument);
 	}
 
 	// get the handles that the process currently has open
@@ -277,7 +246,7 @@ namespace mango {
 
 		// get the privilege luid
 		LUID luid;
-		if (!LookupPrivilegeValue(0, SE_DEBUG_NAME, &luid))
+		if (!LookupPrivilegeValueA(0, enc_str("SeDebugPrivilege").c_str(), &luid))
 			throw FailedToGetPrivilegeLUID(mango_format_w32status(GetLastError()));
 
 		TOKEN_PRIVILEGES token_privileges;
@@ -379,6 +348,9 @@ namespace mango {
 
 	// used by setup()
 	void Process::setup_internal() {
+		// properly cleanup if an exception is thrown
+		ScopeGuard _guard(&Process::release, this);
+
 		this->m_is_valid = true;
 		this->m_pid = GetProcessId(this->m_handle);
 		this->m_is_self = (this->m_pid == GetCurrentProcessId());
@@ -399,5 +371,45 @@ namespace mango {
 			this->load_modules();
 		else
 			this->query_module_addresses();
+
+		// no exception was thrown, great
+		_guard.cancel();
+	}
+
+	// override to change internal behavior
+	void Process::default_read_memory_func(const Process* const process, const void* const address, void* const buffer, const size_t size) {
+		if (process->is_self()) {
+			if (memcpy_s(buffer, size, address, size))
+				throw FailedToReadMemory();
+		} else if (const auto status = NtReadVirtualMemory(process->get_handle(), address, buffer, size, nullptr); !NT_SUCCESS(status)) {
+			throw FailedToReadMemory(mango_format_ntstatus(status));
+		}
+	}
+	void Process::default_write_memory_func(const Process* const process, void* const address, const void* const buffer, const size_t size) {
+		if (process->is_self()) {
+			if (memcpy_s(address, size, buffer, size))
+				throw FailedToWriteMemory();
+		} else if (const auto status = NtWriteVirtualMemory(process->get_handle(), address, buffer, size, nullptr); !NT_SUCCESS(status)) {
+			throw FailedToWriteMemory(mango_format_ntstatus(status));
+		}
+	}
+	void* Process::default_allocate_memory_func(const Process* const process, const size_t size, const uint32_t protection, const uint32_t type) {
+		void* address = nullptr; SIZE_T region_size = size;
+		if (const auto status = NtAllocateVirtualMemory(process->get_handle(), &address, 0, &region_size, type, protection); !NT_SUCCESS(status))
+			throw FailedToAllocateVirtualMemory(mango_format_ntstatus(status));
+		return address;
+	}
+	void Process::default_free_memory_func(const Process* const process, void* const address, const size_t size, const uint32_t type) {
+		void* base_address = address; SIZE_T region_size = size;
+		if (const auto status = NtFreeVirtualMemory(process->get_handle(), &base_address, &region_size, type); !NT_SUCCESS(status))
+			throw FailedToFreeVirtualMemory(mango_format_ntstatus(status));
+	}
+	void Process::default_create_remote_thread_func(const Process* const process, void* const address, void* const argument) {
+		HANDLE thread_handle;
+		if (const auto status = NtCreateThreadEx(&thread_handle, THREAD_ALL_ACCESS, nullptr, process->get_handle(), address, argument, 0, 0, 0, 0, nullptr); !NT_SUCCESS(status))
+			throw FailedToCreateRemoteThread(mango_format_ntstatus(status));
+
+		WaitForSingleObject(thread_handle, INFINITE);
+		CloseHandle(thread_handle);
 	}
 } // namespace mango

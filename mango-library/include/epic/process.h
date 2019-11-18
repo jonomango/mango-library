@@ -18,14 +18,29 @@ namespace mango {
 			ACCESS_MASK m_access;
 		};
 
+		using ReadMemoryFunc		 = void (*)(const Process* process, const void* address, void* buffer, size_t size);
+		using WriteMemoryFunc		 = void (*)(const Process* process, void* address, const void* buffer, size_t size);
+		using AllocateMemoryFunc	 = void*(*)(const Process* process, size_t size, uint32_t protection, uint32_t type);
+		using FreeMemoryFunc		 = void (*)(const Process* process, void* address, size_t size, uint32_t type);
+		using CreateRemoteThreadFunc = void (*)(const Process* process, void* address, void* argument);
+
+		// options used at setup
 		struct SetupOptions {
 			// lazy loading, only load modules when they are requested
 			bool m_defer_module_loading = true;
 
 			// the access mask to open the process with
 			ACCESS_MASK m_handle_access = PROCESS_ALL_ACCESS;
+
+			// user-defineable
+			ReadMemoryFunc m_read_memory_func = default_read_memory_func;
+			WriteMemoryFunc m_write_memory_func = default_write_memory_func;
+			AllocateMemoryFunc m_allocate_memory_func = default_allocate_memory_func;
+			FreeMemoryFunc m_free_memory_func = default_free_memory_func;
+			CreateRemoteThreadFunc m_create_remote_thread_func = default_create_remote_thread_func;
 		};
 
+		// containers
 		using ProcessHandles = std::vector<HandleInfo>;
 		using ProcessModules = std::unordered_map<std::string, LoadedModule>;
 		using ModuleAddressMap = std::unordered_map<std::string, uintptr_t>;
@@ -130,7 +145,7 @@ namespace mango {
 		}
 
 		// allocate virtual memory in the process (wrapper for VirtualAllocEx)
-		uintptr_t alloc_virt_mem(const size_t size,
+		void* alloc_virt_mem(const size_t size,
 			const uint32_t protection = PAGE_READWRITE,
 			const uint32_t type = MEM_COMMIT | MEM_RESERVE) const;
 
@@ -193,18 +208,33 @@ namespace mango {
 		// used by setup()
 		void setup_internal();
 
+	public:
+		// override to change internal behavior
+		void set_read_memory_func(const ReadMemoryFunc& func) noexcept { this->m_options.m_read_memory_func = func; }
+		void set_write_memory_func(const WriteMemoryFunc& func) noexcept { this->m_options.m_write_memory_func = func; }
+		void set_allocate_memory_func(const AllocateMemoryFunc& func) noexcept { this->m_options.m_allocate_memory_func = func; }
+		void set_free_memory_func(const FreeMemoryFunc& func) noexcept { this->m_options.m_free_memory_func = func; }
+		void set_create_remote_thread_func(const CreateRemoteThreadFunc& func) noexcept { this->m_options.m_create_remote_thread_func = func; }
+
+		// default functions
+		static void  default_read_memory_func(const Process* const process, const void* const address, void* const buffer, const size_t size);
+		static void  default_write_memory_func(const Process* const process, void* const address, const void* const buffer, const size_t size);
+		static void* default_allocate_memory_func(const Process* const process, const size_t size, const uint32_t protection, const uint32_t type);
+		static void  default_free_memory_func(const Process* const process, void* const address, const size_t size, const uint32_t type);
+		static void  default_create_remote_thread_func(const Process* const process, void* const address, void* const argument);
+
 	private:
 		bool m_is_valid = false,
 			m_is_self = false,
-			m_free_handle = false,
 			m_is_wow64 = false,
-			m_is_64bit = false;
+			m_is_64bit = false,
+			m_free_handle = false;
+		std::string m_process_name;
 		HANDLE m_handle = nullptr;
 		uint32_t m_pid = 0;
 		uintptr_t m_peb64_address = 0;
 		SetupOptions m_options;
-		ModuleAddressMap m_module_addresses; // needed for deferred loading
+		ModuleAddressMap m_module_addresses;
 		mutable ProcessModules m_modules; // mutable for deferred loading
-		std::string m_process_name;
 	};
 } // namespace mango

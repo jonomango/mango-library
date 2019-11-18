@@ -43,7 +43,7 @@ namespace mango {
 				throw InvalidVtableSize();
 
 			// allocate a new vtable
-			this->m_vtable = process.alloc_virt_mem(this->m_vtable_size + process.get_ptr_size());
+			this->m_vtable = uintptr_t(process.alloc_virt_mem(this->m_vtable_size + process.get_ptr_size()));
 
 			// copy the old values to the new table (and the rtti complete locator)
 			const auto old_table_content = std::make_unique<uint8_t[]>(this->m_vtable_size + process.get_ptr_size());

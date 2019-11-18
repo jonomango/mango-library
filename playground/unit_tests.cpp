@@ -106,6 +106,16 @@ void test_process(mango::Process& process) {
 	unit_test.expect_value(*example_value, 69);
 	unit_test.expect_value(process.read<int>(example_value), 69);
 
+	// custom functions
+	process.set_read_memory_func([](const mango::Process* process, const void* const address, void* const buffer, const size_t size) {
+		*reinterpret_cast<uint32_t*>(buffer) = 0x420;
+	});
+	unit_test.expect_value(process.read<uint32_t>(0x69), 0x420);
+	process.set_read_memory_func(mango::Process::default_read_memory_func);
+
+	// make sure reading still uses default_read_memory_func
+	unit_test.expect_value(process.read<int>(example_value), 69);
+
 	// get/set page protection
 	unit_test.expect_value(process.get_mem_prot(example_value), PAGE_READWRITE);
 	unit_test.expect_value(process.set_mem_prot(example_value, 4, PAGE_READONLY), PAGE_READWRITE);
@@ -433,6 +443,15 @@ void test_misc(mango::Process& process) {
 	}
 
 	unit_test.expect_value(dummy_value, 420);
+
+	{
+		mango::ScopeGuard _guard([](int& ref_value) { 
+			ref_value = 69; 
+			throw std::runtime_error("ScopeGuard should not throw."); 
+		}, std::ref(dummy_value));
+	}
+
+	unit_test.expect_value(dummy_value, 69);
 }
 
 // unit test everything

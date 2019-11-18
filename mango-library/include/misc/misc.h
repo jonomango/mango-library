@@ -54,19 +54,17 @@ namespace mango {
 	};
 
 	// based on https://www.drdobbs.com/cpp/generic-change-the-way-you-write-excepti/184403758
-	// but adapted for c++17
+	// references must be passed using std::ref()
 	class ScopeGuard {
 	public:
 		template <typename Callable, typename ...Args>
 		ScopeGuard(Callable&& callable, Args&& ...args)
-			: m_callable(std::bind(std::forward<Callable>(callable), std::forward<Args>(args)...)) {
-		}
-
-		// destructor shouldn't throw
+			: m_callable(std::bind(std::forward<Callable>(callable), std::forward<Args>(args)...)) {}
+		   
 		~ScopeGuard() {
-			try {
-				if (!this->m_should_cancel)
-					this->m_callable();
+			// destructor shouldn't throw
+			if (!this->m_should_cancel) try {
+				this->m_callable();
 			} catch (...) {}
 		}
 

@@ -78,15 +78,14 @@ namespace mango {
 			"\x5A", // pop edx
 
 			// dont call original if returned false
-			//"\xCC",
 			"\x3C\x00", // cmp al, 0
 			"\x0F\x85\x04\x00\x00\x00", // jne 4
 			"\x89\xD0", // mov eax, edx
 			"\x5A", // pop edx (for the syscall)
 			Shellcode::ret(),
 
-			// call the original
-			"\x58", // pop eax (for the syscall)
+			// restore the syscall
+			"\x58", // pop eax
 			"\xBA", this->m_original, // mov edx, m_original
 			"\xFF\xE2" // jmp edx
 		).allocate_and_write(*this->m_process));

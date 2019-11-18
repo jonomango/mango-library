@@ -9,7 +9,7 @@
 namespace mango {
 	// allocate memory in the target process
 	uintptr_t Shellcode::allocate(const Process& process) const {
-		return process.alloc_virt_mem(this->m_data.size(), PAGE_EXECUTE_READWRITE);
+		return uintptr_t(process.alloc_virt_mem(this->m_data.size(), PAGE_EXECUTE_READWRITE));
 	}
 
 	// copy the shellcode to the address

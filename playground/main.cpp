@@ -10,6 +10,7 @@
 #include <epic/windows_defs.h>
 #include <epic/driver.h>
 #include <misc/vector.h>
+#include <misc/color.h>
 #include <misc/logger.h>
 #include <misc/error_codes.h>
 #include <misc/math.h>
@@ -61,25 +62,14 @@ void setup_logger(std::ostream& stream = std::cout) {
 int main() {
 	setup_logger();
 
-	// in case we broke some shit
-	// run_unit_tests();
+	run_unit_tests();
 
-	// catch c++ exceptions
 	try {
-		// start up our service
-		const auto service = mango::create_and_start_service("MangoService", R"(C:\Users\realj\Desktop\testing.sys)");
-		mango::ScopeGuard _guard(&mango::stop_and_delete_service, service);
 		
-		// open a handle to our driver
-		const mango::Driver driver("\\\\.\\ExampleSymLink");
-		mango::logger.info("Success! Driver handle: ", driver.get_handle());
-	} catch (mango::MangoError& e) {
-		mango::logger.error(e.full_error());
 	} catch (std::exception& e) {
 		mango::logger.error(e.what());
 	}
 
-	mango::logger.info("program end");
-	std::getchar();
+	std::system("pause");
 	return 0;
 }

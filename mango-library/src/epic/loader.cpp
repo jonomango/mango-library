@@ -74,24 +74,24 @@ namespace {
 				break;
 
 			if (base_reloc.SizeOfBlock > 0) {
+				struct RelocEntry {
+					uint16_t m_offset : 12,
+						m_type : 4;
+				};
+
 				// the IMAGE_BASE_RELOCATION is included in the SizeOfBlock
-				const auto num_entries = (base_reloc.SizeOfBlock - sizeof(IMAGE_BASE_RELOCATION)) / sizeof(uint16_t);
+				const auto num_entries = (base_reloc.SizeOfBlock - sizeof(IMAGE_BASE_RELOCATION)) / sizeof(RelocEntry);
 				const auto relocations_addr = base_reloc_addr + sizeof(IMAGE_BASE_RELOCATION);
 
 				// fix each relocation in the block
 				for (size_t i = 0; i < num_entries; i++) {
-					const auto entry = process.read<uint16_t>(relocations_addr + sizeof(uint16_t) * i);
+					const auto entry = process.read<RelocEntry>(relocations_addr + sizeof(RelocEntry) * i);
+					const auto address = module_base + base_reloc.VirtualAddress + entry.m_offset;
 
-					// the 12 least significant bits are the offset
-					const auto offset = entry & 0xFFF;
-					const auto address = module_base + base_reloc.VirtualAddress + offset;
-
-					// the 4 most significant bits are the relocation type (there's more types, i just didn't feel they were used)
-					const auto type = entry >> 12;
-					if (type == IMAGE_REL_BASED_HIGHLOW) {
+					if (entry.m_type == IMAGE_REL_BASED_HIGHLOW) {
 						const auto value = process.read<uint32_t>(address);
 						process.write(address, uint32_t(value + delta));
-					} else if (type == IMAGE_REL_BASED_DIR64) {
+					} else if (entry.m_type == IMAGE_REL_BASED_DIR64) {
 						const auto value = process.read<uint64_t>(address);
 						process.write(address, uint64_t(value + delta));
 					}
@@ -119,8 +119,17 @@ namespace {
 		if (nt_header->Signature != IMAGE_NT_SIGNATURE)
 			throw mango::InvalidPEHeader();
 
+		// make sure the image architecture matches
+		if constexpr (is64bit) {
+			if (nt_header->FileHeader.Machine == IMAGE_FILE_MACHINE_I386)
+				throw mango::UnmatchingImageArchitecture(enc_str("x86 image detected."));
+		} else {
+			if (nt_header->FileHeader.Machine == IMAGE_FILE_MACHINE_AMD64)
+				throw mango::UnmatchingImageArchitecture(enc_str("x64 image detected."));
+		}
+
 		// base address of the module in memory
-		const auto module_base = process.alloc_virt_mem(nt_header->OptionalHeader.SizeOfImage, PAGE_EXECUTE_READWRITE);
+		const auto module_base = uintptr_t(process.alloc_virt_mem(nt_header->OptionalHeader.SizeOfImage, PAGE_EXECUTE_READWRITE));
 
 		// copy the pe header to memory
 		process.write(module_base, image, nt_header->OptionalHeader.SizeOfHeaders);
@@ -288,7 +297,8 @@ namespace {
 		data.m_load_library = Ptr(process.get_proc_addr(enc_str("kernel32.dll"), enc_str("LoadLibraryA")));
 
 		// allocate and copy the loader data to the process's memory space
-		const auto thread_argument = process.alloc_virt_mem(sizeof(data));
+		const auto thread_argument = uintptr_t(process.alloc_virt_mem(sizeof(data)));
+		mango::ScopeGuard _guard([&]() { process.free_virt_mem(thread_argument); });
 		process.write(thread_argument, data);
 
 		// execute our shellcode

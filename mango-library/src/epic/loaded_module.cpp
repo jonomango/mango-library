@@ -28,6 +28,15 @@ namespace mango {
 		if (nt_header.FileHeader.SizeOfOptionalHeader != sizeof(ImageOptionalHeader))
 			throw InvalidPEHeader();
 
+		// make sure the image architecture matches
+		if constexpr (is64bit) {
+			if (nt_header.FileHeader.Machine == IMAGE_FILE_MACHINE_I386)
+				throw UnmatchingImageArchitecture(enc_str("x86 image detected."));
+		} else {
+			if (nt_header.FileHeader.Machine == IMAGE_FILE_MACHINE_AMD64)
+				throw UnmatchingImageArchitecture(enc_str("x64 image detected."));
+		}
+
 		// size of image
 		loaded_module->m_image_size = nt_header.OptionalHeader.SizeOfImage;
 
@@ -161,7 +170,6 @@ namespace mango {
 	std::optional<LoadedModule::PeEntry> LoadedModule::get_export(const std::string func_name) const {
 		if (const auto it = this->m_exported_funcs.find(func_name); it != m_exported_funcs.end())
 			return it->second;
-
 		return {};
 	}
 
@@ -170,7 +178,6 @@ namespace mango {
 		if (const auto it = m_imported_funcs.find(module_name); it != m_imported_funcs.end())
 			if (const auto it2 = it->second.find(func_name); it2 != it->second.end())
 				return it2->second;
-
 		return {};
 	}
 } // namespace mango
