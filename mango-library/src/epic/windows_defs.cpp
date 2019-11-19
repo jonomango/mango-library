@@ -47,4 +47,12 @@ namespace mango {
 		static const auto index = syscall_index(enc_str("NtQuerySystemInformation"));
 		return syscall<NTSTATUS>(index, SystemInformationClass, SystemInformation, SystemInformationLength, ReturnLength);
 	}
+	NTSTATUS NtSuspendProcess(HANDLE ProcessHandle) {
+		static const auto index = syscall_index(enc_str("NtSuspendProcess"));
+		return syscall<NTSTATUS>(index, ProcessHandle);
+	}
+	NTSTATUS NtResumeProcess(HANDLE ProcessHandle) {
+		static const auto index = syscall_index(enc_str("NtResumeProcess"));
+		return syscall<NTSTATUS>(index, ProcessHandle);
+	}
 } // namespace mango

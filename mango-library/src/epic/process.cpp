@@ -198,6 +198,16 @@ namespace mango {
 		this->m_options.m_create_remote_thread_func(this, address, argument);
 	}
 
+	// suspend/resume the process
+	void Process::suspend() const {
+		if (const auto status = NtSuspendProcess(this->m_handle); !NT_SUCCESS(status))
+			throw FailedToSuspendProcess(mango_format_ntstatus(status));
+	}
+	void Process::resume() const {
+		if (const auto status = NtResumeProcess(this->m_handle); !NT_SUCCESS(status))
+			throw FailedToResumeProcess(mango_format_ntstatus(status));
+	}
+
 	// get the handles that the process currently has open
 	Process::ProcessHandles Process::get_open_handles() const {
 		unsigned long buffer_size = 0xFFFF;
@@ -234,6 +244,19 @@ namespace mango {
 		return handles;
 	}
 
+	// updates the internal list of modules
+	void Process::load_modules() {
+		// update addresses
+		this->query_module_addresses();
+
+		// clear any previously loaded modules
+		this->m_modules.clear();
+
+		// load every module
+		for (const auto& [name, address] : this->m_module_addresses)
+			this->m_modules[name] = LoadedModule(*this, address);
+	}
+
 	// SeDebugPrivilege
 	void Process::set_debug_privilege(const bool value) {
 		// get a process token handle
@@ -257,19 +280,6 @@ namespace mango {
 		// the goob part
 		if (!AdjustTokenPrivileges(token_handle, false, &token_privileges, 0, 0, 0))
 			throw FailedToSetTokenPrivilege(mango_format_w32status(GetLastError()));
-	}
-
-	// updates the internal list of modules
-	void Process::load_modules() {
-		// update addresses
-		this->query_module_addresses();
-
-		// clear any previously loaded modules
-		this->m_modules.clear();
-
-		// load every module
-		for (const auto& [name, address] : this->m_module_addresses)
-			this->m_modules[name] = LoadedModule(*this, address);
 	}
 
 	// get the name of the process (to cache it)

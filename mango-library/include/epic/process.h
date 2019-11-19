@@ -173,14 +173,18 @@ namespace mango {
 			this->create_remote_thread(reinterpret_cast<void*>(address), reinterpret_cast<void*>(argument));
 		}
 
+		// suspend/resume the process
+		void suspend() const;
+		void resume() const;
+
 		// get the handles that the process currently has open
 		ProcessHandles get_open_handles() const;
 
-		// SeDebugPrivilege
-		static void set_debug_privilege(const bool value);
-
 		// updates the internal list of modules
 		void load_modules();
+
+		// SeDebugPrivilege
+		static void set_debug_privilege(const bool value);
 
 		// a more intuitive way to test for validity
 		explicit operator bool() const { return this->is_valid(); }

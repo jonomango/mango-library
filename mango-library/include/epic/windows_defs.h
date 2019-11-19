@@ -132,4 +132,6 @@ namespace mango {
 		ULONG ProcessInformationLength, PULONG ReturnLength);
 	NTSTATUS NtOpenProcess(PHANDLE ProcessHandle, ACCESS_MASK DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes, PCLIENT_ID ClientId);
 	NTSTATUS NtQuerySystemInformation(SYSTEM_INFORMATION_CLASS SystemInformationClass, PVOID SystemInformation, ULONG SystemInformationLength, PULONG ReturnLength);
+	NTSTATUS NtSuspendProcess(HANDLE ProcessHandle);
+	NTSTATUS NtResumeProcess(HANDLE ProcessHandle);
 } // namespace mango
