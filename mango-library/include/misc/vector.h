@@ -25,8 +25,16 @@ namespace mango {
 		}
 
 		// copy constructor
-		template <typename X>
-		constexpr explicit Vector(const Vector<X, C>& other) noexcept {
+		template <typename Type>
+		constexpr explicit Vector(const Vector<Type, C>& other) noexcept {
+			for_constexpr<0, C, 1>([&](const size_t i) {
+				this->operator[](i) = T(other[i]);
+			});
+		}
+
+		// copy constructor from std::array
+		template <typename Type>
+		constexpr explicit Vector(const std::array<Type, C>& other) noexcept {
 			for_constexpr<0, C, 1>([&](const size_t i) {
 				this->operator[](i) = T(other[i]);
 			});

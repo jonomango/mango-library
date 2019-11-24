@@ -117,6 +117,26 @@ namespace mango {
 			return { uint8_t(0xC2), uint8_t(size), uint8_t(size >> 8) };
 		}
 
+		// start a stackframe
+		template <bool is64bit = false>
+		static constexpr StringWrapper prologue() {
+			if constexpr (is64bit) {
+				return "\x55\x48\x89\xE5";
+			} else {
+				return "\x55\x89\xE5";
+			}
+		}
+
+		// end of a stackframe
+		template <bool is64bit = false>
+		static constexpr StringWrapper epilogue() {
+			if constexpr (is64bit) {
+				return "\x48\x89\xEC\x5D";
+			} else {
+				return "\x89\xEC\x5D";
+			}
+		}
+
 		// shellcode to switch execution from x86 to x64
 		static constexpr StringWrapper enter_x64() {
 			return "\x6A\x33"          // push 0x33 (x64 code segment)

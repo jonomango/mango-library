@@ -16,6 +16,9 @@ namespace mango {
 			// to note, if you don't replace the table you will be hooking the function for EVERY instance of the class
 			// while replacing the table will only hook for this specific instance.
 			bool m_replace_table = true;
+
+			// whether we should call release in the destructor or not
+			bool m_auto_release = true;
 		};
 
 	public:
@@ -26,7 +29,10 @@ namespace mango {
 		VmtHook(const Process& process, const void* const instance, const SetupOptions& options = SetupOptions()) { 
 			this->setup(process, instance, options); 
 		}
-		~VmtHook() { this->release(); }
+		~VmtHook() {
+			if (this->m_options.m_auto_release)
+				this->release(); 
+		}
 
 		// instance is the address of the class instance to be hooked
 		void setup(const Process& process, const uintptr_t instance, const SetupOptions& options = SetupOptions());
@@ -42,7 +48,7 @@ namespace mango {
 
 		// wrapper
 		template <typename Ret = uintptr_t, typename Addr = uintptr_t>
-		Ret hook(const size_t index, Addr const func) {
+		Ret hook(const size_t index, const Addr func) {
 			return Ret(this->hook(index, uintptr_t(func)));
 		}
 

@@ -2,6 +2,10 @@
 
 #include "vector.h"
 
+// fkn windows
+#undef max
+#undef min
+
 
 namespace mango {
 	// floating-point types are in the range of [0, 1]
@@ -9,13 +13,13 @@ namespace mango {
 	template <typename T>
 	class ColorRGBA : public Vector<T, 4> {
 	public:
-		constexpr ColorRGBA() : ColorRGBA(T(0), T(0), T(0)) { }
+		constexpr explicit ColorRGBA(const T& scalar = T(0)) : ColorRGBA(scalar, scalar, scalar) {}
 		constexpr ColorRGBA(const T& r, const T& g, const T& b, const T& a)
 			: Vector<T, 4>(r, g, b, a) {}
 
 		// kinda poop but i couldn't think of a better way to implement this without using 2 contructors
 		constexpr ColorRGBA(const T& r, const T& g, const T& b)
-			: Vector<T, 4>(r, g, b) {
+			: Vector<T, 4>(r, g, b, T(0)) {
 			if constexpr (std::is_floating_point<T>::value)
 				this->alpha(T(1));
 			else
@@ -74,6 +78,9 @@ namespace mango {
 	using rgba8 = ColorRGBA<uint8_t>;
 	using rgba16 = ColorRGBA<uint16_t>;
 	using rgba32 = ColorRGBA<uint32_t>;
+
+	using rgbaf = ColorRGBA<float>;
+	using rgbad = ColorRGBA<double>;
 
 	using hsbaf = ColorHSBA<float>;
 	using hsbad = ColorHSBA<double>;

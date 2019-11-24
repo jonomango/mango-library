@@ -65,7 +65,8 @@ int main() {
 	run_unit_tests();
 
 	try {
-		const auto process = mango::Process::current();
+		std::array<float, 3> cheese;
+		mango::Vec3f frog(cheese);
 	} catch (std::exception& e) {
 		mango::logger.error(e.what());
 	}
