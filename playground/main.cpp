@@ -65,8 +65,7 @@ int main() {
 	run_unit_tests();
 
 	try {
-		std::array<float, 3> cheese;
-		mango::Vec3f frog(cheese);
+
 	} catch (std::exception& e) {
 		mango::logger.error(e.what());
 	}

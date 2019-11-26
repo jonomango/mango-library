@@ -47,6 +47,54 @@ namespace mango {
 			static_assert((true && ... && std::is_same_v<Args, T>), "Incorrect argument types provided");
 		}
 
+		// addition
+		constexpr Vector<T, C>& operator+=(const Vector<T, C>& other) {
+			return *this = (*this + other);
+		}
+		constexpr Vector<T, C> operator+(const Vector<T, C>& other) const {
+			Vector<T, C> copy(*this);
+			for_constexpr<0, C, 1>([&](const size_t i) {
+				copy[i] += other[i];
+			});
+			return copy;
+		}
+
+		// subtraction
+		constexpr Vector<T, C>& operator-=(const Vector<T, C>& other) {
+			return *this = (*this - other);
+		}
+		constexpr Vector<T, C> operator-(const Vector<T, C>& other) const {
+			Vector<T, C> copy(*this);
+			for_constexpr<0, C, 1>([&](const size_t i) {
+				copy[i] -= other[i];
+			});
+			return copy;
+		}
+
+		// multiplication
+		constexpr Vector<T, C>& operator*=(const Vector<T, C>& other) {
+			return *this = (*this * other);
+		}
+		constexpr Vector<T, C> operator*(const Vector<T, C>& other) const {
+			Vector<T, C> copy(*this);
+			for_constexpr<0, C, 1>([&](const size_t i) {
+				copy[i] *= other[i];
+			});
+			return copy;
+		}
+
+		// division
+		constexpr Vector<T, C>& operator/=(const Vector<T, C>& other) {
+			return *this = (*this / other);
+		}
+		constexpr Vector<T, C> operator/(const Vector<T, C>& other) const {
+			Vector<T, C> copy(*this);
+			for_constexpr<0, C, 1>([&](const size_t i) {
+				copy[i] /= other[i];
+			});
+			return copy;
+		}
+
 		// constexpr accumulate function
 		template <typename Fn>
 		constexpr T accumulate(const size_t start, const size_t end, const T initial, const Fn op) const noexcept {
