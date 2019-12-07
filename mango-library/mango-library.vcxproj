@@ -22,6 +22,7 @@
     <ClInclude Include="include\crypto\compile_time_key.h" />
     <ClInclude Include="include\crypto\string_encryption.h" />
     <ClInclude Include="include\epic\driver.h" />
+    <ClInclude Include="include\epic\read_write_variable.h" />
     <ClInclude Include="include\misc\fnv_hash.h" />
     <ClInclude Include="include\epic\unused_memory.h" />
     <ClInclude Include="include\epic\iat_hook.h" />

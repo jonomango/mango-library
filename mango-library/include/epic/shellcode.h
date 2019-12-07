@@ -22,7 +22,7 @@ namespace mango {
 
 		// same as Shellcode s(); s.push(args);
 		template <typename ...Args>
-		Shellcode(Args&& ...args) noexcept { this->push(std::forward<Args>(args)...);  }
+		explicit Shellcode(Args&& ...args) noexcept { this->push(std::forward<Args>(args)...);  }
 
 		// allocate memory in the target process
 		uintptr_t allocate(const Process& process) const;

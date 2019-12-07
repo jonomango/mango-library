@@ -9,6 +9,7 @@
 #include <epic/unused_memory.h>
 #include <epic/windows_defs.h>
 #include <epic/driver.h>
+#include <epic/read_write_variable.h>
 #include <misc/vector.h>
 #include <misc/matrix.h>
 #include <misc/color.h>
@@ -69,6 +70,17 @@ int main() {
 		for (const auto& pid : mango::Process::get_pids_by_name("csgo.exe")) {
 			mango::logger.info(pid);
 		}
+
+		const auto process = mango::Process::current();
+
+		struct TestStruct {
+			int _one, _two;
+		};
+
+		TestStruct frog{ 1, 2 };
+		mango::ReadWriteVariable frog_accessor(process, &frog);
+
+		std::cout << frog_accessor()._one << std::endl;
 	} catch (std::exception& e) {
 		mango::logger.error(e.what());
 	}

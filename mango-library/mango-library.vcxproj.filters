@@ -125,6 +125,9 @@
     <ClInclude Include="include\misc\matrix.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\epic\read_write_variable.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <MASM Include="asm\syscall-x64.asm">
