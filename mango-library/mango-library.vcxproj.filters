@@ -122,6 +122,9 @@
     <ClInclude Include="include\epic\driver.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\misc\matrix.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <MASM Include="asm\syscall-x64.asm">

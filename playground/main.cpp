@@ -10,6 +10,7 @@
 #include <epic/windows_defs.h>
 #include <epic/driver.h>
 #include <misc/vector.h>
+#include <misc/matrix.h>
 #include <misc/color.h>
 #include <misc/logger.h>
 #include <misc/error_codes.h>
@@ -62,10 +63,12 @@ void setup_logger(std::ostream& stream = std::cout) {
 int main() {
 	setup_logger();
 
-	run_unit_tests();
+	//run_unit_tests();
 
 	try {
-
+		for (const auto& pid : mango::Process::get_pids_by_name("csgo.exe")) {
+			mango::logger.info(pid);
+		}
 	} catch (std::exception& e) {
 		mango::logger.error(e.what());
 	}

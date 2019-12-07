@@ -62,6 +62,12 @@ namespace mango {
 			return Process(GetCurrentProcess(), options);
 		}
 
+		// SeDebugPrivilege
+		static void set_debug_privilege(const bool value);
+
+		// get a list of pids that match the process name
+		static std::vector<uint32_t> get_pids_by_name(const std::string& process_name);
+
 		// setup by pid
 		void setup(const uint32_t pid, const SetupOptions& options = SetupOptions());
 
@@ -182,9 +188,6 @@ namespace mango {
 
 		// updates the internal list of modules
 		void load_modules();
-
-		// SeDebugPrivilege
-		static void set_debug_privilege(const bool value);
 
 		// a more intuitive way to test for validity
 		explicit operator bool() const { return this->is_valid(); }

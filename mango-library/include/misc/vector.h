@@ -44,7 +44,6 @@ namespace mango {
 		template <typename... Args>
 		constexpr Vector(const Args&... args) noexcept : std::array<T, C>({ T(args)... }) {
 			static_assert(sizeof...(Args) == C, "Incorrect amount of arguments provided");
-			static_assert((true && ... && std::is_same_v<Args, T>), "Incorrect argument types provided");
 		}
 
 		// addition
@@ -100,7 +99,7 @@ namespace mango {
 		constexpr T accumulate(const size_t start, const size_t end, const T initial, const Fn op) const noexcept {
 			T value = initial;
 			for (size_t i = start; i < end; ++i)
-				value = op(value, this->at(i));
+				value = T(op(value, this->at(i)));
 			return value;
 		}
 

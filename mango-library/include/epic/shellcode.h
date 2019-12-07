@@ -63,8 +63,7 @@ namespace mango {
 		// catch-all function
 		template <typename ...Args>
 		Shellcode& push(Args&& ...args) noexcept {
-			// kinda a hack but whatever /shrug
-			const int _unused[] = { (this->push(std::forward<Args>(args)), 0)... };
+			(this->push(std::forward<Args>(args)), ...);
 			return *this;
 		}
 
@@ -72,33 +71,41 @@ namespace mango {
 		Shellcode& push(Ret&& value) noexcept {
 			using Type = std::remove_const_t<std::remove_reference_t<Ret>>;
 
+			// size before we add shibble
+			const auto old_size = this->m_data.size();
+
 			// for integral types
 			if constexpr (std::is_integral_v<Type>) {
 				// resize
-				const auto old_size = this->m_data.size();
 				this->m_data.resize(this->m_data.size() + sizeof(value));
 
 				// copy
 				*reinterpret_cast<Type*>(this->m_data.data() + old_size) = value;
+			} else if constexpr (std::is_same_v<Type, Shellcode>) {
+				const auto length = value.m_data.size();
+
+				// resize
+				this->m_data.resize(this->m_data.size() + length);
+
+				// copy into this->m_data
+				memcpy_s(this->m_data.data() + old_size, length, value.m_data.data(), length);
 			} else if constexpr (std::is_same_v<Type, StringWrapper>) {
 				const auto length = value.get_size();
 
 				// resize
-				const auto old_size = this->m_data.size();
 				this->m_data.resize(this->m_data.size() + length);
 
 				// copy into this->m_data
 				memcpy_s(this->m_data.data() + old_size, length, value.get_str(), length);
-			} else if constexpr ((std::is_array_v<Type> || is_stdcontainer<Type>::value) && sizeof(value[0]) == 1) { // byte arrays
+			} else if constexpr ((std::is_array_v<Type> || Shellcode::is_stdcontainer<Type>::value) && sizeof(value[0]) == 1) { // byte arrays
 				auto length = sizeof(value) - 1;
 				const void* data = &value;
-				if constexpr (is_stdcontainer<Type>::value) {
+				if constexpr (Shellcode::is_stdcontainer<Type>::value) {
 					length = value.size();
 					data = value.data();
 				}
 
 				// resize
-				const auto old_size = this->m_data.size();
 				this->m_data.resize(this->m_data.size() + length);
 
 				// copy into this->m_data
@@ -118,7 +125,7 @@ namespace mango {
 		}
 
 		// start a stackframe
-		template <bool is64bit = false>
+		template <bool is64bit>
 		static constexpr StringWrapper prologue() {
 			if constexpr (is64bit) {
 				return "\x55\x48\x89\xE5";
@@ -127,14 +134,19 @@ namespace mango {
 			}
 		}
 
-		// end of a stackframe
-		template <bool is64bit = false>
+		// end a stackframe
+		template <bool is64bit>
 		static constexpr StringWrapper epilogue() {
 			if constexpr (is64bit) {
 				return "\x48\x89\xEC\x5D";
 			} else {
 				return "\x89\xEC\x5D";
 			}
+		}
+
+		// align esp on a power of 2 boundary
+		static constexpr std::array<uint8_t, 6> align_stack(const uint8_t boundary) {
+			return { uint8_t(0x81), uint8_t(0x81), boundary, uint8_t(0xFF), uint8_t(0xFF), uint8_t(0xFF) };
 		}
 
 		// shellcode to switch execution from x86 to x64

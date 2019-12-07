@@ -72,6 +72,7 @@ namespace mango {
 	mango_create_error(FailedToSetTokenPrivilege, "Failed to set token's privileges.");
 	mango_create_error(FailedToSuspendProcess, "Failed to suspend the process.");
 	mango_create_error(FailedToResumeProcess, "Failed to resume the process.");
+	mango_create_error(FailedToEnumProcesses, "Failed to enumerate all processes.");
 
 	mango_create_error(FailedToQueryProcessArchitecture, "Failed to query process architecture type (x64 or x86).");
 	mango_create_error(FailedToQueryProcessName, "Failed to query process name.");

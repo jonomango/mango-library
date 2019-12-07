@@ -3,6 +3,7 @@
 #include <iostream>
 #include <algorithm>
 #include <Psapi.h>
+#include <WtsApi32.h>
 
 #include "../../include/epic/shellcode.h"
 #include "../../include/epic/syscalls.h"
@@ -51,6 +52,49 @@ namespace {
 } // namespace
 
 namespace mango {
+	// SeDebugPrivilege
+	void Process::set_debug_privilege(const bool value) {
+		// get a process token handle
+		HANDLE token_handle = nullptr;
+		if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &token_handle))
+			throw FailedToOpenProcessToken(mango_format_w32status(GetLastError()));
+
+		// close handle when we're done
+		ScopeGuard _guard(&CloseHandle, token_handle);
+
+		// get the privilege luid
+		LUID luid;
+		if (!LookupPrivilegeValueA(0, enc_str("SeDebugPrivilege").c_str(), &luid))
+			throw FailedToGetPrivilegeLUID(mango_format_w32status(GetLastError()));
+
+		TOKEN_PRIVILEGES token_privileges;
+		token_privileges.PrivilegeCount = 1;
+		token_privileges.Privileges[0].Luid = luid;
+		token_privileges.Privileges[0].Attributes = value ? SE_PRIVILEGE_ENABLED : 0;
+
+		// the goob part
+		if (!AdjustTokenPrivileges(token_handle, false, &token_privileges, 0, 0, 0))
+			throw FailedToSetTokenPrivilege(mango_format_w32status(GetLastError()));
+	}
+
+	// get a list of pids that match the process name
+	std::vector<uint32_t> Process::get_pids_by_name(const std::string& process_name) {
+		PWTS_PROCESS_INFOA processes = nullptr; DWORD count = 0;
+		if (!WTSEnumerateProcessesA(WTS_CURRENT_SERVER_HANDLE, 0, 1, &processes, &count))
+			throw FailedToEnumProcesses(mango_format_w32status(GetLastError()));
+
+		std::vector<uint32_t> pids;
+		for (size_t i = 0; i < count; ++i) {
+			if (process_name != processes[i].pProcessName)
+				continue;
+
+			pids.push_back(processes[i].ProcessId);
+		}
+
+		WTSFreeMemory(processes);
+		return pids;
+	}
+
 	// setup by pid
 	void Process::setup(const uint32_t pid, const SetupOptions& options) {
 		this->release();
@@ -255,31 +299,6 @@ namespace mango {
 		// load every module
 		for (const auto& [name, address] : this->m_module_addresses)
 			this->m_modules[name] = LoadedModule(*this, address);
-	}
-
-	// SeDebugPrivilege
-	void Process::set_debug_privilege(const bool value) {
-		// get a process token handle
-		HANDLE token_handle = nullptr;
-		if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &token_handle))
-			throw FailedToOpenProcessToken(mango_format_w32status(GetLastError()));
-
-		// close handle when we're done
-		ScopeGuard _guard(&CloseHandle, token_handle);
-
-		// get the privilege luid
-		LUID luid;
-		if (!LookupPrivilegeValueA(0, enc_str("SeDebugPrivilege").c_str(), &luid))
-			throw FailedToGetPrivilegeLUID(mango_format_w32status(GetLastError()));
-
-		TOKEN_PRIVILEGES token_privileges;
-		token_privileges.PrivilegeCount = 1;
-		token_privileges.Privileges[0].Luid = luid;
-		token_privileges.Privileges[0].Attributes = value ? SE_PRIVILEGE_ENABLED : 0;
-
-		// the goob part
-		if (!AdjustTokenPrivileges(token_handle, false, &token_privileges, 0, 0, 0))
-			throw FailedToSetTokenPrivilege(mango_format_w32status(GetLastError()));
 	}
 
 	// get the name of the process (to cache it)
