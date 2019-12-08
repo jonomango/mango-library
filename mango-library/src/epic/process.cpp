@@ -22,10 +22,11 @@ namespace {
 
 		// get the corresponding peb structure for the process (32bit vs 64bit)
 		_PEB_INTERNAL<Ptr> peb;
-		if constexpr (sizeof(Ptr) == 4)
+		if constexpr (sizeof(Ptr) == 4) {
 			peb = process.get_peb32();
-		else
+		} else {
 			peb = process.get_peb64();
+		}
 
 		// PEB_LDR_DATA
 		const auto list_head = process.read<_PEB_LDR_DATA_INTERNAL<Ptr>>(peb.Ldr).InMemoryOrderModuleList;
