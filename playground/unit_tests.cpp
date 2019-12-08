@@ -13,6 +13,7 @@
 
 #include <misc/misc.h>
 #include <misc/unit_test.h>
+#include <misc/scope_guard.h>
 #include <misc/error_codes.h>
 
 #include <crypto/string_encryption.h>

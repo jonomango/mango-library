@@ -131,6 +131,9 @@
     <ClInclude Include="include\epic\vmt_helpers.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\misc\scope_guard.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <MASM Include="asm\syscall-x64.asm">

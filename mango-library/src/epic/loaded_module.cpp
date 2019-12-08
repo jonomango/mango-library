@@ -4,6 +4,7 @@
 #include <algorithm>
 
 #include "../../include/epic/process.h"
+#include "../../include/misc/scope_guard.h"
 #include "../../include/misc/error_codes.h"
 
 #undef min

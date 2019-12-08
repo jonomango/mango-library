@@ -9,7 +9,7 @@
 #include "../../include/epic/syscalls.h"
 #include "../../include/epic/windows_defs.h"
 
-#include "../../include/misc/misc.h"
+#include "../../include/misc/scope_guard.h"
 #include "../../include/misc/error_codes.h"
 #include "../../include/misc/logger.h"
 

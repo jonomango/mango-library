@@ -1,7 +1,7 @@
 #include "../../include/epic/driver.h"
 
 #include "../../include/misc/error_codes.h"
-#include "../../include/misc/misc.h"
+#include "../../include/misc/scope_guard.h"
 
 
 namespace mango {

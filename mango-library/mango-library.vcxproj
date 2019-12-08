@@ -42,6 +42,7 @@
     <ClInclude Include="include\misc\math.h" />
     <ClInclude Include="include\misc\matrix.h" />
     <ClInclude Include="include\misc\misc.h" />
+    <ClInclude Include="include\misc\scope_guard.h" />
     <ClInclude Include="include\misc\unit_test.h" />
     <ClInclude Include="include\misc\vector.h" />
   </ItemGroup>

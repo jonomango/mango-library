@@ -2,8 +2,8 @@
 
 #include "../../include/epic/process.h"
 #include "../../include/epic/shellcode.h"
-#include "../../include/misc/misc.h"
 #include "../../include/misc/logger.h"
+#include "../../include/misc/scope_guard.h"
 #include "../../include/misc/error_codes.h"
 #include "../../include/crypto/string_encryption.h"
 

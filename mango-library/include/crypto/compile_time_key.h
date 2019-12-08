@@ -7,7 +7,7 @@
 #undef max
 
 namespace mango {
-	// not much variance, what did u expect from someone ill versed in cryptography
+	// not much variance, what did u expect from someone bad in cryptography
 	constexpr uint64_t compile_time_key(const uint64_t stuff = 0) {
 		// based on compile time
 		const auto hours = uint64_t((__TIME__[0] - '0') * 10 + (__TIME__[1] - '0'));
