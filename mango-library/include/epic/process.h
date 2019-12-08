@@ -117,14 +117,6 @@ namespace mango {
 		PEB_M32 get_peb32() const;
 		PEB_M64 get_peb64() const;
 
-		// get the address of a virtual method in an instance
-		template <typename Ret, typename Addr>
-		Ret get_vfunc(const Addr instance, const size_t index) const {
-			if (this->is_64bit())
-				return Ret(this->read<uintptr_t>(this->read<uintptr_t>(instance) + sizeof(uintptr_t) * index));
-			return Ret(this->read<uint32_t>(this->read<uint32_t>(instance) + sizeof(uint32_t) * index));
-		}
-
 		// read from a memory address
 		void read(const void* const address, void* const buffer, const size_t size) const;
 		void read(const uintptr_t address, void* const buffer, const size_t size) const {

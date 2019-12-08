@@ -9,6 +9,7 @@
 #include <epic/loaded_module.h>
 #include <epic/pattern_scanner.h>
 #include <epic/syscalls.h>
+#include <epic/vmt_helpers.h>
 
 #include <misc/misc.h>
 #include <misc/unit_test.h>
@@ -145,7 +146,8 @@ void test_vmt_hooks(mango::Process& process) {
 
 	class ExampleClass {
 	public:
-		virtual int example_func() {
+		virtual void example_func1() {}
+		virtual int example_func2() {
 			return 1234'5678;
 		}
 	};
@@ -177,11 +179,12 @@ void test_vmt_hooks(mango::Process& process) {
 	unit_test.expect_nonzero(vmt_hook.is_valid());
 
 	// not hooked, should return 1234'5678
-	unit_test.expect_value(example_instance->example_func(), 1234'5678);
+	unit_test.expect_value(example_instance->example_func2(), 1234'5678);
+	unit_test.expect_value(mango::call_vfunc<1, int>(example_instance.get()), 1234'5678);
 
 	const auto original_vtable = process.read<uintptr_t>(example_instance.get());
 
-	vmt_hook.hook<uintptr_t>(0, hooked_func);
+	vmt_hook.hook<uintptr_t>(1, hooked_func);
 
 	// make sure we're placing the table and not the table contents
 	unit_test.expect_nonzero(process.read<uintptr_t>(example_instance.get()) == original_vtable);
@@ -189,7 +192,7 @@ void test_vmt_hooks(mango::Process& process) {
 	// can't hook the same function twice
 	unit_test.expect_custom([&]() {
 		try {
-			vmt_hook.hook<uintptr_t>(0, hooked_func);
+			vmt_hook.hook<uintptr_t>(1, hooked_func);
 			return false;
 		} catch (mango::FunctionAlreadyHooked&) {
 			return true;
@@ -197,26 +200,26 @@ void test_vmt_hooks(mango::Process& process) {
 	});
 
 	// function is now hooked, we expect 8765'4321
-	unit_test.expect_value(example_instance->example_func(), 8765'4321);
+	unit_test.expect_value(example_instance->example_func2(), 8765'4321);
 
-	vmt_hook.unhook(0);
+	vmt_hook.unhook(1);
 
 	// not hooked anymore, should return 1234'5678
-	unit_test.expect_value(example_instance->example_func(), 1234'5678);
+	unit_test.expect_value(example_instance->example_func2(), 1234'5678);
 	unit_test.expect_value(process.read<uintptr_t>(example_instance.get()), original_vtable);
 
-	const auto original = process.get_vfunc<uintptr_t>(example_instance.get(), 0);
+	const auto original = mango::get_vfunc<uintptr_t>(process, example_instance.get(), 1);
 
 	// make sure the original is correct
-	unit_test.expect_value(vmt_hook.hook<uintptr_t>(0, hooked_func), original);
+	unit_test.expect_value(vmt_hook.hook<uintptr_t>(1, hooked_func), original);
 
 	// another check to make sure its hooked
-	unit_test.expect_value(uintptr_t(hooked_func), process.get_vfunc<uintptr_t>(example_instance.get(), 0));
+	unit_test.expect_value(uintptr_t(hooked_func), mango::get_vfunc<uintptr_t>(process, example_instance.get(), 1));
 
 	vmt_hook.release();
 
 	// not hooked, should return 1234'5678
-	unit_test.expect_value(example_instance->example_func(), 1234'5678);
+	unit_test.expect_value(example_instance->example_func2(), 1234'5678);
 
 	// vmt_hook was just released, it is now in an invalid state
 	unit_test.expect_zero(vmt_hook);

@@ -1,9 +1,10 @@
 #pragma once
 
 #include <type_traits>
-#include <functional>
 #include <cstring>
 #include <string>
+#include <tuple>
+#include <functional>
 
 
 namespace mango {
@@ -54,29 +55,39 @@ namespace mango {
 	};
 
 	// based on https://www.drdobbs.com/cpp/generic-change-the-way-you-write-excepti/184403758
-	// references must be passed using std::ref()
+	// NOTE: references must be passed using std::ref()
+	template <typename Callable, typename... Args>
 	class ScopeGuard {
 	public:
-		template <typename Callable, typename ...Args>
-		ScopeGuard(Callable&& callable, Args&& ...args)
-			: m_callable(std::bind(std::forward<Callable>(callable), std::forward<Args>(args)...)) {}
-		   
+		ScopeGuard(const Callable& callable, const Args& ...args)
+			: m_callable(callable), m_arguments(args...) {}
+
 		~ScopeGuard() {
 			// destructor shouldn't throw
 			if (!this->m_should_cancel) try {
-				this->m_callable();
+				this->invoke_callable(std::make_index_sequence<std::tuple_size_v<Arguments>>());
 			} catch (...) {}
 		}
 
 		// cancel the scope guard (and additional scope guards)
 		template <typename ...ScopeGuards>
-		void cancel(ScopeGuards&& ...guards) noexcept {
+		void cancel(ScopeGuards& ...guards) noexcept {
 			this->m_should_cancel = true;
 			(guards.cancel(), ...);
 		}
 
 	private:
-		const std::function<void()> m_callable;
+		using Arguments = std::tuple<Args...>;
+
+		// call the function
+		template <size_t... Is>
+		void invoke_callable(std::index_sequence<Is...>) {
+			std::invoke(this->m_callable, std::get<Is>(this->m_arguments)...);
+		}
+
+	private:
+		Callable m_callable;
+		Arguments m_arguments;
 		bool m_should_cancel = false;
 	};
 } // namespace mango
