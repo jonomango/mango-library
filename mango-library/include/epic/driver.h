@@ -2,7 +2,7 @@
 
 #include <Windows.h>
 #include <stdint.h>
-#include <string>
+#include <string_view>
 
 
 namespace mango {
@@ -18,13 +18,13 @@ namespace mango {
 
 	public:
 		Driver() = default;
-		Driver(const std::string& name, const SetupOptions& options = SetupOptions()) {
+		Driver(const std::string_view name, const SetupOptions& options = SetupOptions()) {
 			this->setup(name, options);
 		}
 		~Driver() { this->release(); }
 
 		// open a handle to the driver
-		void setup(const std::string& name, const SetupOptions& options = SetupOptions());
+		void setup(const std::string_view name, const SetupOptions& options = SetupOptions());
 
 		// close the handle to the driver
 		void release() noexcept;
@@ -53,7 +53,7 @@ namespace mango {
 	};
 
 	// register and start a service using the service control manager
-	SC_HANDLE create_and_start_service(const std::string& service_name, const std::string& file_path);
+	SC_HANDLE create_and_start_service(const std::string_view service_name, const std::string_view file_path);
 
 	// stop and remove a running service
 	void stop_and_delete_service(const SC_HANDLE service);

@@ -3,6 +3,7 @@
 #include <type_traits>
 #include <cstring>
 #include <string>
+#include <string_view>
 
 
 namespace mango {
@@ -26,7 +27,7 @@ namespace mango {
 	}
 
 	// wstring to string conversions
-	std::string wstr_to_str(const std::wstring& str);
+	std::string wstr_to_str(const std::wstring_view str);
 
 	// seems pretty useless at first, but its needed for the automatic size deduction for strings with null chars (ex: shellcode)
 	class StringWrapper {

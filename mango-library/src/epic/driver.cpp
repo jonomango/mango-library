@@ -6,11 +6,14 @@
 
 namespace mango {
 	// open a handle to the driver
-	void Driver::setup(const std::string& name, const SetupOptions& options) {
+	void Driver::setup(const std::string_view name, const SetupOptions& options) {
 		this->release();
 
+		// std::string_view **could** be not null-terminated
+		const std::string null_terminated_name(name);
+
 		// open handle
-		this->m_handle = CreateFileA(name.c_str(), options.m_access, 0, nullptr, OPEN_EXISTING, options.m_attributes, nullptr);
+		this->m_handle = CreateFileA(null_terminated_name.c_str(), options.m_access, 0, nullptr, OPEN_EXISTING, options.m_attributes, nullptr);
 		if (this->m_handle == INVALID_HANDLE_VALUE)
 			throw InvalidFileHandle(mango_format_w32status(GetLastError()));
 

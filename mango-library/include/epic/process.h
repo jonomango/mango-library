@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 
 #include "windows_defs.h"
@@ -18,11 +19,11 @@ namespace mango {
 			ACCESS_MASK m_access;
 		};
 
-		using ReadMemoryFunc		 = void (*)(const Process* process, const void* address, void* buffer, size_t size);
-		using WriteMemoryFunc		 = void (*)(const Process* process, void* address, const void* buffer, size_t size);
-		using AllocateMemoryFunc	 = void*(*)(const Process* process, size_t size, uint32_t protection, uint32_t type);
-		using FreeMemoryFunc		 = void (*)(const Process* process, void* address, size_t size, uint32_t type);
-		using CreateRemoteThreadFunc = void (*)(const Process* process, void* address, void* argument);
+		using ReadMemoryFunc			= void (*)(const Process* process, const void* address, void* buffer, size_t size);
+		using WriteMemoryFunc			= void (*)(const Process* process, void* address, const void* buffer, size_t size);
+		using AllocateMemoryFunc		= void*(*)(const Process* process, size_t size, uint32_t protection, uint32_t type);
+		using FreeMemoryFunc			= void (*)(const Process* process, void* address, size_t size, uint32_t type);
+		using CreateRemoteThreadFunc	= void (*)(const Process* process, void* address, void* argument);
 
 		// options used at setup
 		struct SetupOptions {
@@ -66,7 +67,7 @@ namespace mango {
 		static void set_debug_privilege(const bool value);
 
 		// get a list of pids that match the process name
-		static std::vector<uint32_t> get_pids_by_name(const std::string& process_name);
+		static std::vector<uint32_t> get_pids_by_name(const std::string_view process_name);
 
 		// setup by pid
 		void setup(const uint32_t pid, const SetupOptions& options = SetupOptions());
@@ -105,13 +106,13 @@ namespace mango {
 		const ProcessModules& get_modules() const noexcept { return this->m_modules; }
 
 		// get a loaded module, case-insensitive (passing "" for name returns the current process module)
-		const LoadedModule* get_module(std::string name = "") const;
+		const LoadedModule* get_module(const std::string_view name = "") const;
 
 		// get the base address of a module
-		uintptr_t get_module_addr(const std::string& module_name = "") const;
+		uintptr_t get_module_addr(const std::string_view module_name = "") const;
 
-		// this uses the internal list of modules to find the function address
-		uintptr_t get_proc_addr(const std::string& module_name, const std::string& func_name) const;
+		// this uses the internal list of modules to find the function address (doesn't account for ApiSchema)
+		uintptr_t get_proc_addr(const std::string_view module_name, const std::string_view func_name) const;
 
 		// peb structures
 		PEB_M32 get_peb32() const;

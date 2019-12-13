@@ -11,8 +11,9 @@
 
 
 namespace mango {
+	// NOTE: this cannot be moved to an anonymous namespace!
 	template <bool is64bit>
-	void setup_internal(LoadedModule* loaded_module, const Process& process, const uintptr_t address) {
+	void setup_internal(LoadedModule* const loaded_module, const Process& process, const uintptr_t address) {
 		// architecture dependent types
 		using ImageNtHeaders = std::conditional_t<is64bit, IMAGE_NT_HEADERS64, IMAGE_NT_HEADERS32>;
 		using ImageOptionalHeader = std::conditional_t<is64bit, IMAGE_OPTIONAL_HEADER64, IMAGE_OPTIONAL_HEADER32>;
@@ -152,32 +153,30 @@ namespace mango {
 		m_imported_funcs.clear();
 
 		this->m_image_base = address;
-		this->m_is_valid = true;
-
-		// make sure we aren't valid if setup_internal throws an exception
-		ScopeGuard _guard([&]() { this->m_is_valid = false; });
+		this->m_is_valid = false; // not valid yet, setup_internal() could throw exceptions
 
 		// setup
-		if (process.is_64bit())
+		if (process.is_64bit()) {
 			setup_internal<true>(this, process, address);
-		else
+		} else {
 			setup_internal<false>(this, process, address);
+		}
 
-		// woohoo we're valid
-		_guard.cancel();
+		// setup_internal() didn't throw any exceptions, we're valid
+		this->m_is_valid = true;
 	}
 
 	// get exported functions
-	std::optional<LoadedModule::PeEntry> LoadedModule::get_export(const std::string func_name) const {
-		if (const auto it = this->m_exported_funcs.find(func_name); it != m_exported_funcs.end())
+	std::optional<LoadedModule::PeEntry> LoadedModule::get_export(const std::string_view func_name) const {
+		if (const auto it = this->m_exported_funcs.find(std::string(func_name)); it != m_exported_funcs.end())
 			return it->second;
 		return {};
 	}
 
 	// get imported functions
-	std::optional<LoadedModule::PeEntry> LoadedModule::get_import(const std::string module_name, const std::string func_name) const {
-		if (const auto it = m_imported_funcs.find(module_name); it != m_imported_funcs.end())
-			if (const auto it2 = it->second.find(func_name); it2 != it->second.end())
+	std::optional<LoadedModule::PeEntry> LoadedModule::get_import(const std::string_view module_name, const std::string_view func_name) const {	
+		if (const auto it = m_imported_funcs.find(std::string(module_name)); it != m_imported_funcs.end())
+			if (const auto it2 = it->second.find(std::string(func_name)); it2 != it->second.end())
 				return it2->second;
 		return {};
 	}

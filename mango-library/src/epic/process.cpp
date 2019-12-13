@@ -79,7 +79,7 @@ namespace mango {
 	}
 
 	// get a list of pids that match the process name
-	std::vector<uint32_t> Process::get_pids_by_name(const std::string& process_name) {
+	std::vector<uint32_t> Process::get_pids_by_name(const std::string_view process_name) {
 		PWTS_PROCESS_INFOA processes = nullptr; DWORD count = 0;
 		if (!WTSEnumerateProcessesA(WTS_CURRENT_SERVER_HANDLE, 0, 1, &processes, &count))
 			throw FailedToEnumProcesses(mango_format_w32status(GetLastError()));
@@ -148,38 +148,39 @@ namespace mango {
 	}
 
 	// get a loaded module, case-insensitive (passing "" for name returns the current process module)
-	const LoadedModule* Process::get_module(std::string name) const {
+	const LoadedModule* Process::get_module(const std::string_view name) const {
+		std::string case_insensitive_name(name);
+
 		// return own module
 		if (name.empty())
-			name = this->get_name();
+			case_insensitive_name = this->get_name();
 
-		// change to lowercase
-		std::transform(name.begin(), name.end(), name.begin(), std::tolower);
+		// convert to lowercase
+		std::transform(case_insensitive_name.begin(), case_insensitive_name.end(), case_insensitive_name.begin(), std::tolower);
 
 		// find the module
-		if (const auto& it = this->m_modules.find(name); it != this->m_modules.end())
+		if (const auto it = this->m_modules.find(case_insensitive_name); it != this->m_modules.end())
 			return &it->second;
 		
-		// not using defer loading
-		if (!this->m_options.m_defer_module_loading)
-			return nullptr;
-
 		// module might not be loaded yet (defer loading option)
-		if (const auto& it = this->m_module_addresses.find(name); it != this->m_module_addresses.end())
-			return &(this->m_modules[it->first] = LoadedModule(*this, it->second));
+		if (this->m_options.m_defer_module_loading) {
+			if (const auto it = this->m_module_addresses.find(case_insensitive_name); it != this->m_module_addresses.end())
+				return &(this->m_modules[it->first] = LoadedModule(*this, it->second));
+		}
+
+		// model not found
 		return nullptr;
 	}
 
 	// get the base address of a module
-	uintptr_t Process::get_module_addr(const std::string& module_name) const {
+	uintptr_t Process::get_module_addr(const std::string_view module_name) const {
 		if (const auto mod = this->get_module(module_name); mod)
 			return mod->get_image_base();
 		return 0;
 	}
 
-	// this uses the internal list of modules to find the function address
-	// not as consistant as the implementation below but probably faster
-	uintptr_t Process::get_proc_addr(const std::string& module_name, const std::string& func_name) const {
+	// this uses the internal list of modules to find the function address (doesn't account for ApiSchema)
+	uintptr_t Process::get_proc_addr(const std::string_view module_name, const std::string_view func_name) const {
 		const auto mod = this->get_module(module_name);
 		if (!mod)
 			return 0;

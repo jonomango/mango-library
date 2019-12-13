@@ -28,7 +28,7 @@ namespace mango {
 		uintptr_t allocate(const Process& process) const;
 
 		// copy the shellcode to the address
-		void write(const Process& process, uintptr_t address) const;
+		void write(const Process& process, const uintptr_t address) const;
 
 		// allocate() then write()
 		uintptr_t allocate_and_write(const Process& process) const {

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <stdint.h>
 #include <unordered_map>
 #include <vector>
@@ -28,21 +29,20 @@ namespace mango {
 		};
 
 		// EAT and IAT
-		using ExportedFuncs = std::unordered_map<std::string /* func name */, PeEntry>;
-		using ImportedFuncs = std::unordered_map<std::string /* module name */, 
-			std::unordered_map<std::string /* func name */, PeEntry>>;
+		using ExportedFuncs = std::unordered_map<std::string, PeEntry>;
+		using ImportedFuncs = std::unordered_map<std::string, std::unordered_map<std::string, PeEntry>>;
 
 		// sections
 		using PeSections = std::vector<PeSection>;
 
 		template <bool>
-		friend void setup_internal(LoadedModule* loaded_module, const Process& process, const uintptr_t address);
+		friend void setup_internal(LoadedModule* const loaded_module, const Process& process, const uintptr_t address);
 
 	public:
 		LoadedModule() = default; // left in an invalid state
 		LoadedModule(const Process& process, const void* const address) { this->setup(process, address); }
 		LoadedModule(const Process& process, const uintptr_t address) { this->setup(process, address); }
-		LoadedModule(const LoadedModule& other) noexcept = default; // copying
+		LoadedModule(const LoadedModule& other) = default; // copying is allowed
 
 		// setup (parse the pe header mostly)
 		void setup(const Process& process, const uintptr_t address);
@@ -64,11 +64,11 @@ namespace mango {
 
 		// get exported functions
 		const ExportedFuncs& get_exports() const { return this->m_exported_funcs; }
-		std::optional<PeEntry> get_export(const std::string func_name) const;
+		std::optional<PeEntry> get_export(const std::string_view func_name) const;
 
 		// get imported functions
 		const ImportedFuncs& get_imports() const { return this->m_imported_funcs; }
-		std::optional<PeEntry> get_import(const std::string module_name, const std::string func_name) const;
+		std::optional<PeEntry> get_import(const std::string_view module_name, const std::string_view func_name) const;
 
 		// get sections
 		const PeSections& get_sections() const { return this->m_sections; }

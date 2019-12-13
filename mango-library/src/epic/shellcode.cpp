@@ -13,7 +13,7 @@ namespace mango {
 	}
 
 	// copy the shellcode to the address
-	void Shellcode::write(const Process& process, uintptr_t address) const {
+	void Shellcode::write(const Process& process, const uintptr_t address) const {
 		process.write(address, this->m_data.data(), this->m_data.size());
 	}
 

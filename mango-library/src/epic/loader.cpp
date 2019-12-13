@@ -310,7 +310,7 @@ namespace {
 
 namespace mango {
 	// inject a dll into another process (using LoadLibrary)
-	uintptr_t load_library(const Process& process, const std::string& dll_path) {
+	uintptr_t load_library(const Process& process, const std::string_view dll_path) {
 		const auto func_addr = process.get_proc_addr(enc_str("kernel32.dll"), enc_str("LoadLibraryA"));
 		if (!func_addr)
 			throw FailedToGetFunctionAddress();
@@ -324,7 +324,8 @@ namespace mango {
 		ScopeGuard _guard_two([&]() { process.free_virt_mem(ret_address); });
 
 		// write the dll name
-		process.write(str_address, dll_path.data(), dll_path.size() + 1);
+		const std::string null_terminated_path(dll_path);
+		process.write(str_address, null_terminated_path.c_str(), null_terminated_path.size() + 1);
 
 		// HMODULE
 		uintptr_t ret_value = 0;
@@ -362,10 +363,12 @@ namespace mango {
 	}
 
 	// manual map a dll into another process
-	uintptr_t manual_map(const Process& process, const std::string& dll_path) {
+	uintptr_t manual_map(const Process& process, const std::string_view dll_path) {
+		const std::string null_terminated_path(dll_path);
+
 		// open file
 		const auto file_handle = CreateFileA(
-			dll_path.c_str(),
+			null_terminated_path.c_str(),
 			GENERIC_READ,
 			FILE_SHARE_READ | FILE_SHARE_WRITE,
 			nullptr,

@@ -6,41 +6,43 @@
 namespace mango {
 	// this has a slight memory overhead, especially noticeable with several smaller datatypes
 	// NOTE: obviously the lifetime of the process passed to the constructor should not end 
-	// while still using the ReadWriteVariable, doing so is a user-error
+	// while still using the RWVariable, doing so is a user-error
 	template <typename T>
-	class ReadWriteVariable {
+	class RWVariable {
 	public:
-		ReadWriteVariable() = default;
-		constexpr ReadWriteVariable(const Process& process, T* const address) { this->setup(process, address); }
-		constexpr ReadWriteVariable(const Process& process, const uintptr_t address) { this->setup(process, address); }
+		RWVariable() = default;
+		constexpr RWVariable(const Process& process, void* const address) noexcept { this->setup(process, uintptr_t(address)); }
+		constexpr RWVariable(const Process& process, const uintptr_t address) noexcept { this->setup(process, address); }
 
 		// copying
-		constexpr ReadWriteVariable(const ReadWriteVariable& other) { *this = other; }
-		constexpr ReadWriteVariable<T>& operator=(const ReadWriteVariable& other) {
+		constexpr RWVariable(const RWVariable& other) noexcept { *this = other; }
+		constexpr RWVariable<T>& operator=(const RWVariable& other) noexcept {
 			this->m_process = other.m_process;
 			this->m_address = other.m_address;
 			return *this;
 		}
 
 		// setup stuffz
-		constexpr void setup(const Process& process, const uintptr_t address) { 
+		constexpr void setup(const Process& process, const uintptr_t address) noexcept {
 			this->setup(process, reinterpret_cast<T*>(address)); 
 		}
-		constexpr void setup(const Process& process, T* const address) {
+		constexpr void setup(const Process& process, void* const address) noexcept {
+			this->m_address = reinterpret_cast<T* const>(address);
 			this->m_process = &process;
-			this->m_address = address;
 		}
 
 		// this is pretty dangerous but fuck you
 		// you can still use std::addressof to get the true address
-		constexpr T* operator&() const {
+		constexpr T* operator&() const noexcept {
 			return this->m_address;
 		}
 
-		// read
-		operator T() const {
-			return this->m_process->read<T>(this->m_address);
+		// for arrays
+		RWVariable<T> operator[](const size_t index) const {
+			return RWVariable<T>(*this->m_process, this->m_address + index);
 		}
+
+		// read
 		T operator()() const {
 			return this->m_process->read<T>(this->m_address);
 		}

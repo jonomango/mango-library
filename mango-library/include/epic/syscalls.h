@@ -35,9 +35,10 @@ namespace mango {
 	// but adapted to also work with WOW64 processes
 	template <typename Ret = void*, typename ...Args>
 	Ret syscall(const uint32_t index, const Args ...args) {
-		if constexpr (sizeof(void*) == 8)
+		if constexpr (sizeof(void*) == 8) {
 			return _syscall64<Ret>(index, args...);
-		else
+		} else {
 			return (reinterpret_cast<Ret(*)(uint32_t, Args...)>(&_syscall_stub))(index, args...);
+		}
 	}
 } // namespace mango
