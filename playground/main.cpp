@@ -68,7 +68,7 @@ int main() {
 	run_unit_tests();
 
 	try {
-		const auto process = mango::Process::current();
+
 	} catch (std::exception& e) {
 		mango::logger.error(e.what());
 	}

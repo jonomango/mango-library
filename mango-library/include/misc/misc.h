@@ -49,7 +49,7 @@ namespace mango {
 		constexpr size_t get_size() const { return this->m_size; }
 
 	private:
-		size_t m_size;
 		const char* const m_str;
+		size_t m_size;
 	};
 } // namespace mango

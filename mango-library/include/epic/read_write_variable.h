@@ -24,22 +24,27 @@ namespace mango {
 
 		// setup stuffz
 		constexpr void setup(const Process& process, const uintptr_t address) noexcept {
-			this->setup(process, reinterpret_cast<T*>(address)); 
+			this->m_address = address;
+			this->m_process = &process;
 		}
 		constexpr void setup(const Process& process, void* const address) noexcept {
-			this->m_address = reinterpret_cast<T* const>(address);
-			this->m_process = &process;
+			this->setup(process, uintptr_t(address));
 		}
 
 		// this is pretty dangerous but fuck you
 		// you can still use std::addressof to get the true address
-		constexpr T* operator&() const noexcept {
+		constexpr uintptr_t operator&() const noexcept {
 			return this->m_address;
+		}
+
+		// check for nullness
+		explicit operator bool() const {
+			return (this->m_process && this->m_address);
 		}
 
 		// for arrays
 		RWVariable<T> operator[](const size_t index) const {
-			return RWVariable<T>(*this->m_process, this->m_address + index);
+			return RWVariable<T>(*this->m_process, this->m_address + index * sizeof(T));
 		}
 
 		// read
@@ -55,6 +60,6 @@ namespace mango {
 
 	private:
 		const Process* m_process = nullptr;
-		T* m_address = nullptr;
+		uintptr_t m_address = 0;
 	};
 } // namespace mango
