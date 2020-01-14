@@ -13,52 +13,57 @@ namespace mango {
 			mango::logger.info("Starting unit tests: ", this->m_name);
 		}
 		~UnitTest() {
-			if (this->m_failures > 0)
+			if (this->m_failures > 0) {
 				mango::logger.error("Ending unit tests: ", this->m_name, " (", 
-				this->m_successes, " successes, ", this->m_failures, " failures)");
-			else
+					this->m_successes, " successes, ", this->m_failures, " failures)");
+			} else {
 				mango::logger.info("Ending unit tests: ", this->m_name, " (", 
-				this->m_successes, " successes, ", this->m_failures, " failures)");
+					this->m_successes, " successes, ", this->m_failures, " failures)");
+			}
 		}
 
 		// custom check, return true/false in functor
 		template <typename Callable>
 		void expect_custom(Callable&& func) {
-			if (std::invoke(func))
+			if (std::invoke(func)) {
 				this->success();
-			else
+			} else {
 				this->failure();
+			}
 		}
 
 		// compare to an expected value
 		template <typename T, typename U, bool print_expected = true>
 		void expect_value(T&& value, U&& expected) {
-			if (value == expected)
+			if (value == expected) {
 				this->success();
-			else {
-				if constexpr (!print_expected)
+			} else {
+				if constexpr (!print_expected) {
 					this->failure();
-				else
+				} else {
 					this->failure("recieved: ", value, ", expected: ", expected);
+				}
 			}
 		}
 
 		// check if nonzero value
 		template <typename T>
 		void expect_nonzero(T&& value) {
-			if (value)
+			if (value) {
 				this->success();
-			else
+			} else {
 				this->failure("recieved: false, expected: true");
+			}
 		}
 
 		// check if false (0)
 		template <typename T>
 		void expect_zero(T&& value) {
-			if (!value)
+			if (!value) {
 				this->success();
-			else
+			} else {
 				this->failure("recieved: true, expected: false");
+			}
 		}
 
 		void success() {

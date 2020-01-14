@@ -21,14 +21,14 @@ namespace mango {
 	class Fnv1 {
 	public:
 		constexpr Fnv1() noexcept = default;
-		constexpr Fnv1(const T hash) noexcept : m_value(hash) {}
+		constexpr Fnv1(const T hash) noexcept : m_value{ hash } {}
 
 		// construct from a string
 		template <size_t Size>
 		constexpr Fnv1(const char(&str)[Size]) noexcept
-			: m_value(this->construct_hash(str)) {}
+			: m_value{ this->construct_hash(str) } {}
 		constexpr Fnv1(const StringWrapper str) noexcept
-			: m_value(this->construct_hash(str)) {}
+			: m_value{ this->construct_hash(str) } {}
 
 		// get the hash
 		constexpr operator T() const noexcept { return this->m_value; }
@@ -37,9 +37,9 @@ namespace mango {
 	private:
 		// make the hash
 		static constexpr T construct_hash(const StringWrapper str) {
-			auto hash = fnv1_offset<T>();
-			for (size_t i = 0; i < str.get_size(); ++i)
-				hash = (hash * fnv1_prime<T>()) ^ str.get_str()[i];
+			auto hash{ fnv1_offset<T>() };
+			for (size_t i{ 0 }; i < str.size(); ++i)
+				hash = (hash * fnv1_prime<T>()) ^ str.string()[i];
 			return hash;
 		}
 
@@ -52,14 +52,14 @@ namespace mango {
 	class Fnv1a {
 	public:
 		constexpr Fnv1a() noexcept = default;
-		constexpr Fnv1a(const T hash) noexcept : m_value(hash) {}
+		constexpr Fnv1a(const T hash) noexcept : m_value{ hash } {}
 
 		// construct from a string
 		template <size_t Size>
 		constexpr Fnv1a(const char(&str)[Size]) noexcept 
-			: m_value(this->construct_hash(str)) {}
+			: m_value{ this->construct_hash(str) } {}
 		constexpr Fnv1a(const StringWrapper str) noexcept
-			: m_value(this->construct_hash(str)) {}
+			: m_value{ this->construct_hash(str) } {}
 
 		// get the hash
 		constexpr operator T() const noexcept { return this->m_value; }
@@ -68,9 +68,9 @@ namespace mango {
 	private:
 		// make the hash
 		static constexpr T construct_hash(const StringWrapper str) {
-			auto hash = fnv1_offset<T>();
-			for (size_t i = 0; i < str.get_size(); ++i)
-				hash = (hash ^ str.get_str()[i]) * fnv1_prime<T>();
+			auto hash{ fnv1_offset<T>() };
+			for (size_t i{ 0 }; i < str.size(); ++i)
+				hash = (hash ^ str.string()[i]) * fnv1_prime<T>();
 			return hash;
 		}
 

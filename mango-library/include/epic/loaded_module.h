@@ -16,16 +16,16 @@ namespace mango {
 	class LoadedModule {
 	public:
 		struct PeEntry {
-			uintptr_t m_address = 0,
-				m_table_address = 0;
+			uintptr_t address = 0,
+				tableaddress = 0;
 		};
 
 		struct PeSection {
-			std::string m_name;
-			uintptr_t m_address = 0;
-			size_t m_raw_size = 0,
-				m_virtual_size = 0;
-			uint32_t m_characteristics = 0; // IMAGE_SECTION_HEADER::Characteristics
+			std::string name;
+			uintptr_t address = 0;
+			size_t rawsize = 0,
+				virtualsize = 0;
+			uint32_t characteristics = 0; // IMAGE_SECTION_HEADER::Characteristics
 		};
 
 		// EAT and IAT

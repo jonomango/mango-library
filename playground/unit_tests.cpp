@@ -24,7 +24,7 @@
 
 
 void test_process(mango::Process& process) {
-	mango::UnitTest unit_test("Process");
+	mango::UnitTest unit_test{ "Process" };
 
 	// process is not initialized yet
 	unit_test.expect_zero(process);
@@ -38,13 +38,13 @@ void test_process(mango::Process& process) {
 
 	// initializing process with a bad pid should throw
 	{
-		mango::ScopeGuard _fail_test([&]() { unit_test.failure(); });
+		mango::ScopeGuard _failtest{ [&]() { unit_test.failure(); } };
 
 		try {
 			process.setup(3);
 		} catch (mango::MangoError&) {
 			unit_test.success();
-			_fail_test.cancel();
+			_failtest.cancel();
 		}
 	}
 
@@ -76,27 +76,27 @@ void test_process(mango::Process& process) {
 
 	// 32bit peb
 	if (!process.is_64bit()) {
-		const auto peb = process.get_peb32();
+		const auto peb{ process.get_peb32() };
 		unit_test.expect_value(peb.ImageBaseAddress, uintptr_t(GetModuleHandle(nullptr)));
 		unit_test.expect_value(peb.BeingDebugged, IsDebuggerPresent());
 	}
 
 	// 64bit peb
 	if (!process.is_64bit() || process.is_wow64()) {
-		const auto peb = process.get_peb64();
+		const auto peb{ process.get_peb64() };
 		unit_test.expect_value(peb.ImageBaseAddress, uintptr_t(GetModuleHandle(nullptr)));
 		unit_test.expect_value(peb.BeingDebugged, IsDebuggerPresent());
 	}
 
 	// LoadLibrary
-	const auto kernel32dll = load_library(process, "kernel32.dll");
+	const auto kernel32dll{ load_library(process, "kernel32.dll") };
 	unit_test.expect_value(kernel32dll, uintptr_t(LoadLibraryA("kernel32.dll")));
 
 	// GetProcAddress
 	unit_test.expect_value(process.get_proc_addr("kernel32.dll", "IsDebuggerPresent"), uintptr_t(IsDebuggerPresent));
 
 	// allocating virtual memory
-	const auto example_value = reinterpret_cast<int*>(process.alloc_virt_mem(4, PAGE_READWRITE));
+	const auto example_value{ reinterpret_cast<int*>(process.alloc_virt_mem(4, PAGE_READWRITE)) };
 	unit_test.expect_nonzero(example_value);
 
 	// reading memory
@@ -143,7 +143,7 @@ void test_process(mango::Process& process) {
 }
 
 void test_vmt_hooks(mango::Process& process) {
-	mango::UnitTest unit_test("VmtHook");
+	mango::UnitTest unit_test{ "VmtHook" };
 
 	class ExampleClass {
 	public:
@@ -153,12 +153,12 @@ void test_vmt_hooks(mango::Process& process) {
 		}
 	};
 
-	const auto hooked_func = static_cast<int(__fastcall*)(void*, void*)>([](void* ecx, void*) -> int {
+	const auto hooked_func{ static_cast<int(__fastcall*)(void*, void*)>([](void* ecx, void*) -> int {
 		return 8765'4321;
-	});
+	}) };
 
-	const auto example_instance = std::make_unique<ExampleClass>();
-	mango::VmtHook vmt_hook;
+	const auto example_instance{ std::make_unique<ExampleClass>() };
+	mango::VmtHook vmt_hook{};
 
 	// vmt_hook is in an invalid state
 	unit_test.expect_zero(vmt_hook);
@@ -170,10 +170,7 @@ void test_vmt_hooks(mango::Process& process) {
 	vmt_hook.release();
 	vmt_hook.release();
 
-	mango::VmtHook::SetupOptions vmt_options;
-	vmt_options.m_replace_table = true;
-
-	vmt_hook.setup(process, example_instance.get(), vmt_options);
+	vmt_hook.setup(process, example_instance.get(), { .replace_table = true });
 
 	// vmt_hook is setup, it is now in an invalid state
 	unit_test.expect_nonzero(vmt_hook);
@@ -181,14 +178,14 @@ void test_vmt_hooks(mango::Process& process) {
 
 	// not hooked, should return 1234'5678
 	unit_test.expect_value(example_instance->example_func2(), 1234'5678);
-	unit_test.expect_value(mango::call_vfunc<1, int>(example_instance.get()), 1234'5678);
+	unit_test.expect_value(mango::call_vfunc<int>(1, example_instance.get()), 1234'5678);
 
-	const auto original_vtable = process.read<uintptr_t>(example_instance.get());
+	const auto original_vtable{ process.read<uintptr_t>(example_instance.get()) };
 
 	vmt_hook.hook<uintptr_t>(1, hooked_func);
 
-	// make sure we're placing the table and not the table contents
-	unit_test.expect_nonzero(process.read<uintptr_t>(example_instance.get()) == original_vtable);
+	// make sure we're replacing the table and not the table contents
+	unit_test.expect_value(process.read<uintptr_t>(example_instance.get()), original_vtable);
 
 	// can't hook the same function twice
 	unit_test.expect_custom([&]() {
@@ -209,7 +206,7 @@ void test_vmt_hooks(mango::Process& process) {
 	unit_test.expect_value(example_instance->example_func2(), 1234'5678);
 	unit_test.expect_value(process.read<uintptr_t>(example_instance.get()), original_vtable);
 
-	const auto original = mango::get_vfunc<uintptr_t>(process, example_instance.get(), 1);
+	const auto original{ mango::get_vfunc<uintptr_t>(process, example_instance.get(), 1) };
 
 	// make sure the original is correct
 	unit_test.expect_value(vmt_hook.hook<uintptr_t>(1, hooked_func), original);
@@ -232,13 +229,13 @@ void test_iat_hooks(mango::Process& process) {
 	if (sizeof(void*) == 4)
 		return;
 
-	mango::UnitTest unit_test("IatHook");
+	mango::UnitTest unit_test{ "IatHook" };
 
-	const auto hooked_func = static_cast<int(WINAPI*)()>([]() {
+	const auto hooked_func{ static_cast<int(WINAPI*)()>([]() {
 		return 69;
-	});
+	}) };
 
-	mango::IatHook iat_hook;
+	mango::IatHook iat_hook{};
 
 	// not setup yet
 	unit_test.expect_zero(iat_hook);
@@ -256,7 +253,7 @@ void test_iat_hooks(mango::Process& process) {
 	unit_test.expect_nonzero(iat_hook);
 	unit_test.expect_nonzero(iat_hook.is_valid());
 
-	const auto volatile original = uintptr_t(IsDebuggerPresent);
+	const auto volatile original{ uintptr_t(IsDebuggerPresent) };
 
 	// hook() returns the original, verify this
 	unit_test.expect_value(iat_hook.hook("kernel32.dll", "IsDebuggerPresent", hooked_func), original);
@@ -311,9 +308,9 @@ void test_syscall_hooks(mango::Process& process) {
 	if (sizeof(void*) != 4)
 		return;
 
-	mango::UnitTest unit_test("Wow64SyscallHook");
+	mango::UnitTest unit_test{ "Wow64SyscallHook" };
 
-	const auto syscall_callback = static_cast<bool(*)(const uint32_t, uint32_t* const, volatile uint32_t)>(
+	const auto syscall_callback{ static_cast<bool(*)(const uint32_t, uint32_t* const, volatile uint32_t)>(
 		[](const uint32_t syscall_index, uint32_t* const arguments, volatile uint32_t return_value) {
 		if (syscall_index == mango::syscall_index("NtReadVirtualMemory")) {
 			*reinterpret_cast<uint32_t*>(uintptr_t(arguments[1])) = 420;
@@ -321,21 +318,21 @@ void test_syscall_hooks(mango::Process& process) {
 			return false;
 		}
 		return true;
-	});
+	}) };
 
-	mango::Wow64SyscallHook syscall_hook(process, uint32_t(uintptr_t(syscall_callback)));
+	mango::Wow64SyscallHook syscall_hook{ process, uint32_t(uintptr_t(syscall_callback)) };
 
 	// overwrite the value in the syscall_callback
-	int value = 69;
+	int value{ 69 };
 	ReadProcessMemory(process.get_handle(), &value, 0, 0, 0);
 	unit_test.expect_value(value, 420);
 }
 
 // not much to test, mostly just makes sure that all the cancer template stuff compiles
 void test_shellcode(mango::Process& process) {
-	mango::UnitTest unit_test("Shellcode");
+	mango::UnitTest unit_test{ "Shellcode" };
 
-	mango::Shellcode shellcode;
+	mango::Shellcode shellcode{};
 
 	// empty obviously
 	unit_test.expect_zero(shellcode.get_data().size());
@@ -363,7 +360,7 @@ void test_shellcode(mango::Process& process) {
 	unit_test.expect_value(*reinterpret_cast<uint16_t*>(shellcode.get_data().data()), 0x6900);
 
 	// allocate and write shellcode to memory
-	const auto address = shellcode.allocate_and_write(process);
+	const auto address{ shellcode.allocate_and_write(process) };
 	unit_test.expect_nonzero(address);
 	unit_test.expect_value(process.read<uint16_t>(address), 0x6900);
 
@@ -371,9 +368,9 @@ void test_shellcode(mango::Process& process) {
 }
 
 void test_loaded_module(mango::Process& process) {
-	mango::UnitTest unit_test("LoadedModule");
+	mango::UnitTest unit_test{ "LoadedModule" };
 
-	mango::LoadedModule loaded_module;
+	mango::LoadedModule loaded_module{};
 
 	// not setup yet
 	unit_test.expect_zero(loaded_module);
@@ -387,72 +384,73 @@ void test_loaded_module(mango::Process& process) {
 }
 
 void test_pattern_scanner(mango::Process& process) {
-	mango::UnitTest unit_test("PatternScanner");
+	mango::UnitTest unit_test{ "PatternScanner" };
 
 	// generate random data
 	static uint8_t random_data[512]; // has to be static (so it's not allocated on the stack)
-	for (size_t i = 0; i < sizeof(random_data); ++i)
+	for (size_t i{ 0 }; i < sizeof(random_data); ++i)
 		random_data[i] = uint8_t(rand());
 
-	std::ostringstream pattern;
+	std::ostringstream pattern{};
 
 	// uppercase, single spaces, no wildcards
-	for (size_t i = 0; i < sizeof(random_data); ++i)
+	for (size_t i{ 0 }; i < sizeof(random_data); ++i)
 		pattern << std::setfill('0') << std::setw(2) << std::uppercase << std::hex << +random_data[i] << " ";
 	unit_test.expect_value(mango::find_pattern(process, process.get_name(), pattern.str()), uintptr_t(&random_data));
 
 	// lowercase, single spaces, no wildcards
 	pattern.str("");
-	for (size_t i = 0; i < sizeof(random_data); ++i)
+	for (size_t i{ 0 }; i < sizeof(random_data); ++i)
 		pattern << std::setfill('0') << std::setw(2) << std::hex << +random_data[i] << " ";
 	unit_test.expect_value(mango::find_pattern(process, process.get_name(), pattern.str()), uintptr_t(&random_data));
 
 	// lowercase, varying spaces, no wildcards
 	pattern.str("");
-	for (size_t i = 0; i < sizeof(random_data); ++i)
+	for (size_t i{ 0 }; i < sizeof(random_data); ++i)
 		pattern << std::setfill('0') << std::setw(2) << std::hex << +random_data[i] << std::string(rand() % 10, ' ');
 	unit_test.expect_value(mango::find_pattern(process, process.get_name(), pattern.str()), uintptr_t(&random_data));
 
 	// lowercase, varying spaces, with wildcards
 	pattern.str("");
-	for (size_t i = 0; i < sizeof(random_data); ++i) {
-		if (rand() % 10)
+	for (size_t i{ 0 }; i < sizeof(random_data); ++i) {
+		if (rand() % 10) {
 			pattern << std::setfill('0') << std::setw(2) << std::hex << +random_data[i] << std::string(rand() % 10, ' ');
-		else
+		} else {
 			pattern << "?";
+		}
 	}
 	unit_test.expect_value(mango::find_pattern(process, process.get_name(), pattern.str()), uintptr_t(&random_data));
 
 	// random pattern, shouldn't find anything
 	pattern.str("");
-	for (size_t i = 0; i < 512; ++i)
+	for (size_t i{ 0 }; i < 512; ++i)
 		pattern << std::setfill('0') << std::setw(2) << std::hex << rand() % 256;
 	unit_test.expect_zero(mango::find_pattern(process, process.get_name(), pattern.str()));
 }
 
 void test_misc(mango::Process& process) {
-	mango::UnitTest unit_test("Misc");
+	mango::UnitTest unit_test{ "Misc" };
 
 	using namespace std::string_literals;
 
 	unit_test.expect_value(enc_str("testString12345"), "testString12345");
 	unit_test.expect_value(enc_str("\x00hello world!"), "\x00hello world!"s);
 
-	int dummy_value = 69;
+	int dummy_value{ 69 };
 
 	// scope guard
 	{
-		mango::ScopeGuard _guard([&]() { dummy_value = 420; });
+		const mango::ScopeGuard _guard{ [&]() { dummy_value = 420; } };
 		unit_test.expect_value(dummy_value, 69);
 	}
 
 	unit_test.expect_value(dummy_value, 420);
 
 	{
-		mango::ScopeGuard _guard([](int& ref_value) { 
-			ref_value = 69; 
-			throw std::runtime_error("ScopeGuard should not throw."); 
-		}, std::ref(dummy_value));
+		const mango::ScopeGuard _guard{ [](int& ref_value) {
+			ref_value = 69;
+			throw std::runtime_error("ScopeGuard should not throw.");
+		}, std::ref(dummy_value) };
 	}
 
 	unit_test.expect_value(dummy_value, 69);

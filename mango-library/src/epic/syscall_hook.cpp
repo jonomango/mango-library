@@ -12,7 +12,7 @@ namespace mango {
 
 		// only works for wow64 processes obviously...
 		if (process.is_64bit())
-			throw NotWow64Process();
+			throw NotWow64Process{};
 
 		// ntdll.dll:Wow64Transition
 		this->wow64_transition = uint32_t(process.get_proc_addr(
@@ -20,13 +20,13 @@ namespace mango {
 
 		// older versions of windows maybe?
 		if (!this->wow64_transition)
-			throw FailedToVerifyX64Transition();
+			throw FailedToVerifyX64Transition{};
 
 		this->m_process = &process;
 		this->m_options = options;
 
 		// so we can write
-		const auto protection = process.set_mem_prot(this->wow64_transition, 4, PAGE_EXECUTE_READWRITE);
+		const auto protection{ process.set_mem_prot(this->wow64_transition, 4, PAGE_EXECUTE_READWRITE) };
 
 		// store original address
 		this->m_original = process.read<uint32_t>(this->wow64_transition);

@@ -14,9 +14,9 @@
 namespace {
 	template <typename Ptr>
 	struct ManualMapData {
-		Ptr m_module_base;
-		Ptr m_get_proc_address;
-		Ptr m_load_library;
+		Ptr modulebase;
+		Ptr getprocaddress;
+		Ptr loadlibrary;
 	};
 
 	// in case i need to modify the shellcode later
@@ -65,33 +65,33 @@ namespace {
 	// fix base relocations in the image
 	template <typename Ptr>
 	void fix_image_relocations(const mango::Process& process, const Ptr module_base, const Ptr delta, const Ptr reloc_dir_addr) {
-		auto base_reloc_addr = module_base + reloc_dir_addr;
+		auto base_reloc_addr{ module_base + reloc_dir_addr };
 
 		// fix up relocations
 		while (true) {
-			const auto base_reloc = process.read<IMAGE_BASE_RELOCATION>(base_reloc_addr);
+			const auto base_reloc{ process.read<IMAGE_BASE_RELOCATION>(base_reloc_addr) };
 			if (!base_reloc.VirtualAddress)
 				break;
 
 			if (base_reloc.SizeOfBlock > 0) {
 				struct RelocEntry {
-					uint16_t m_offset : 12,
-						m_type : 4;
+					uint16_t offset : 12,
+						type : 4;
 				};
 
 				// the IMAGE_BASE_RELOCATION is included in the SizeOfBlock
-				const auto num_entries = (base_reloc.SizeOfBlock - sizeof(IMAGE_BASE_RELOCATION)) / sizeof(RelocEntry);
-				const auto relocations_addr = base_reloc_addr + sizeof(IMAGE_BASE_RELOCATION);
+				const auto num_entries{ (base_reloc.SizeOfBlock - sizeof(IMAGE_BASE_RELOCATION)) / sizeof(RelocEntry) };
+				const auto relocations_addr{ base_reloc_addr + sizeof(IMAGE_BASE_RELOCATION) };
 
 				// fix each relocation in the block
-				for (size_t i = 0; i < num_entries; i++) {
-					const auto entry = process.read<RelocEntry>(relocations_addr + sizeof(RelocEntry) * i);
-					const auto address = module_base + base_reloc.VirtualAddress + entry.m_offset;
+				for (size_t i{ 0 }; i < num_entries; i++) {
+					const auto entry{ process.read<RelocEntry>(relocations_addr + sizeof(RelocEntry) * i) };
+					const auto address{ module_base + base_reloc.VirtualAddress + entry.offset };
 
-					if (entry.m_type == IMAGE_REL_BASED_HIGHLOW) {
+					if (entry.type == IMAGE_REL_BASED_HIGHLOW) {
 						const auto value = process.read<uint32_t>(address);
 						process.write(address, uint32_t(value + delta));
-					} else if (entry.m_type == IMAGE_REL_BASED_DIR64) {
+					} else if (entry.type == IMAGE_REL_BASED_DIR64) {
 						const auto value = process.read<uint64_t>(address);
 						process.write(address, uint64_t(value + delta));
 					}
@@ -110,44 +110,44 @@ namespace {
 		using PImageNtHeaders = std::conditional_t<is64bit, PIMAGE_NT_HEADERS64, PIMAGE_NT_HEADERS32>;
 
 		// dos header
-		const auto dos_header = PIMAGE_DOS_HEADER(image);
+		const auto dos_header{ PIMAGE_DOS_HEADER(image) };
 		if (dos_header->e_magic != IMAGE_DOS_SIGNATURE)
-			throw mango::InvalidPEHeader();
+			throw mango::InvalidPEHeader{};
 
 		// nt header
-		const auto nt_header = PImageNtHeaders(image + dos_header->e_lfanew);
+		const auto nt_header{ PImageNtHeaders(image + dos_header->e_lfanew) };
 		if (nt_header->Signature != IMAGE_NT_SIGNATURE)
-			throw mango::InvalidPEHeader();
+			throw mango::InvalidPEHeader{};
 
 		// make sure the image architecture matches
 		if constexpr (is64bit) {
 			if (nt_header->FileHeader.Machine == IMAGE_FILE_MACHINE_I386)
-				throw mango::UnmatchingImageArchitecture(enc_str("x86 image detected."));
+				throw mango::UnmatchingImageArchitecture{ enc_str("x86 image detected.") };
 		} else {
 			if (nt_header->FileHeader.Machine == IMAGE_FILE_MACHINE_AMD64)
-				throw mango::UnmatchingImageArchitecture(enc_str("x64 image detected."));
+				throw mango::UnmatchingImageArchitecture{ enc_str("x64 image detected.") };
 		}
 
 		// base address of the module in memory
-		const auto module_base = uintptr_t(process.alloc_virt_mem(nt_header->OptionalHeader.SizeOfImage, PAGE_EXECUTE_READWRITE));
+		const auto module_base{ uintptr_t(process.alloc_virt_mem(nt_header->OptionalHeader.SizeOfImage, PAGE_EXECUTE_READWRITE)) };
 
 		// copy the pe header to memory
 		process.write(module_base, image, nt_header->OptionalHeader.SizeOfHeaders);
 
 		// copy each section to memory
-		const auto section_headers = PIMAGE_SECTION_HEADER(nt_header + 1);
-		for (size_t i = 0; i < nt_header->FileHeader.NumberOfSections; i++) {
+		const auto section_headers{ PIMAGE_SECTION_HEADER(nt_header + 1) };
+		for (size_t i{ 0 }; i < nt_header->FileHeader.NumberOfSections; i++) {
 			process.write(module_base + section_headers[i].VirtualAddress,
 				image + section_headers[i].PointerToRawData, section_headers[i].SizeOfRawData);
 		}
 
 		// fix relocations
-		const auto reloc_delta = Ptr(module_base) - Ptr(nt_header->OptionalHeader.ImageBase);
-		const auto reloc_dir_addr = nt_header->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress;
+		const auto reloc_delta{ Ptr(module_base) - Ptr(nt_header->OptionalHeader.ImageBase) };
+		const auto reloc_dir_addr{ nt_header->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress };
 		fix_image_relocations<Ptr>(process, Ptr(module_base), reloc_delta, reloc_dir_addr);
 
 		// shellcode for the loader thread
-		mango::Shellcode shellcode;
+		mango::Shellcode shellcode{};
 		if (process.is_64bit()) {
 			shellcode.push(
 				"\x40\x53\x57\x41\x57\x48\x83\xEC\x20\x48\x8B\xF9\x48\x8B\x09\x4C\x63\x79\x3C\x4C\x03\xF9\x41\x8B",
@@ -291,14 +291,15 @@ namespace {
 		}
 
 		// arguments to pass to the loader thread
-		ManualMapData<Ptr> data;
-		data.m_module_base = Ptr(module_base);
-		data.m_get_proc_address = Ptr(process.get_proc_addr(enc_str("kernel32.dll"), enc_str("GetProcAddress")));
-		data.m_load_library = Ptr(process.get_proc_addr(enc_str("kernel32.dll"), enc_str("LoadLibraryA")));
+		const ManualMapData<Ptr> data{
+			.modulebase = Ptr(module_base),
+			.getprocaddress = Ptr(process.get_proc_addr(enc_str("kernel32.dll"), enc_str("GetProcAddress"))),
+			.loadlibrary = Ptr(process.get_proc_addr(enc_str("kernel32.dll"), enc_str("LoadLibraryA")))
+		};
 
 		// allocate and copy the loader data to the process's memory space
-		const auto thread_argument = uintptr_t(process.alloc_virt_mem(sizeof(data)));
-		mango::ScopeGuard _guard([&]() { process.free_virt_mem(thread_argument); });
+		const auto thread_argument{ uintptr_t(process.alloc_virt_mem(sizeof(data))) };
+		const mango::ScopeGuard _guard{ [&]() { process.free_virt_mem(thread_argument); } };
 		process.write(thread_argument, data);
 
 		// execute our shellcode
@@ -311,28 +312,28 @@ namespace {
 namespace mango {
 	// inject a dll into another process (using LoadLibrary)
 	uintptr_t load_library(const Process& process, const std::string_view dll_path) {
-		const auto func_addr = process.get_proc_addr(enc_str("kernel32.dll"), enc_str("LoadLibraryA"));
+		const auto func_addr{ process.get_proc_addr(enc_str("kernel32.dll"), enc_str("LoadLibraryA")) };
 		if (!func_addr)
-			throw FailedToGetFunctionAddress();
+			throw FailedToGetFunctionAddress{};
 
 		// this will be where the dll path is stored in the process
-		const auto str_address = uintptr_t(process.alloc_virt_mem(dll_path.size() + 1));
-		ScopeGuard _guard_one([&]() { process.free_virt_mem(str_address); });
+		const auto str_address{ uintptr_t(process.alloc_virt_mem(dll_path.size() + 1)) };
+		const ScopeGuard _guardone{ [&]() { process.free_virt_mem(str_address); } };
 
 		// for the return value of LoadLibraryA
-		const auto ret_address = uintptr_t(process.alloc_virt_mem(process.get_ptr_size()));
-		ScopeGuard _guard_two([&]() { process.free_virt_mem(ret_address); });
+		const auto ret_address{ uintptr_t(process.alloc_virt_mem(process.get_ptr_size())) };
+		const ScopeGuard _guardtwo{ [&]() { process.free_virt_mem(ret_address); } };
 
 		// write the dll name
-		const std::string null_terminated_path(dll_path);
+		const std::string null_terminated_path{ dll_path };
 		process.write(str_address, null_terminated_path.c_str(), null_terminated_path.size() + 1);
 
 		// HMODULE
-		uintptr_t ret_value = 0;
+		uintptr_t ret_value{ 0 };
 
 		// this shellcode basically just calls LoadLibraryA()
 		if (process.is_64bit()) {
-			Shellcode(
+			Shellcode{
 				"\x48\x83\xEC\x20", // sub rsp, 0x20
 				"\x48\xB9", str_address, // movabs rcx, str_address
 				"\x48\xB8", func_addr, // movabs rax, func_addr
@@ -341,18 +342,18 @@ namespace mango {
 				"\x48\x83\xC4\x20", // add rsp, 0x20
 				"\x31\xC0", // xor eax, eax
 				Shellcode::ret()
-			).execute(process);
+			}.execute(process);
 
 			// the HMODULE returned by LoadLibrary
 			ret_value = uintptr_t(process.read<uint64_t>(ret_address));
 		} else {
-			Shellcode(
+			Shellcode{
 				"\x68", uint32_t(str_address), // push str_address
 				"\xB8", uint32_t(func_addr), // mov eax, func_addr
 				"\xFF\xD0", // call eax
 				"\xA3", uint32_t(ret_address), // mov [ret_address], eax
 				Shellcode::ret()
-			).execute(process);
+			}.execute(process);
 
 			// the HMODULE returned by LoadLibrary
 			ret_value = process.read<uint32_t>(ret_address);
@@ -364,38 +365,38 @@ namespace mango {
 
 	// manual map a dll into another process
 	uintptr_t manual_map(const Process& process, const std::string_view dll_path) {
-		const std::string null_terminated_path(dll_path);
+		const std::string null_terminated_path{ dll_path };
 
 		// open file
-		const auto file_handle = CreateFileA(
+		const auto file_handle{ CreateFileA(
 			null_terminated_path.c_str(),
 			GENERIC_READ,
 			FILE_SHARE_READ | FILE_SHARE_WRITE,
 			nullptr,
 			OPEN_EXISTING,
 			FILE_ATTRIBUTE_NORMAL,
-			nullptr);
+			nullptr) };
 
 		// invalid handle
 		if (file_handle == INVALID_HANDLE_VALUE)
-			throw InvalidFileHandle(mango_format_w32status(GetLastError()));
+			throw InvalidFileHandle{ mango_format_w32status(GetLastError()) };
 
 		// make sure we close the handle!
-		ScopeGuard _guard(&CloseHandle, file_handle);
+		const ScopeGuard _guard{ &CloseHandle, file_handle };
 
 		// file size
-		const auto file_size = GetFileSize(file_handle, NULL);
+		const auto file_size{ GetFileSize(file_handle, NULL) };
 		if (file_size == INVALID_FILE_SIZE)
-			throw InvalidFileSize(mango_format_w32status(GetLastError()));
+			throw InvalidFileSize{ mango_format_w32status(GetLastError()) };
 
 		// allocate a buffer for the file contents
-		const auto image_buffer = std::make_unique<uint8_t[]>(file_size);
+		const auto image_buffer{ std::make_unique<uint8_t[]>(file_size) };
 		if (!image_buffer)
-			throw FailedToAllocateVirtualMemory();
+			throw FailedToAllocateVirtualMemory{};
 
 		// read file
-		if (DWORD num_bytes = 0; !ReadFile(file_handle, image_buffer.get(), file_size, &num_bytes, FALSE))
-			throw FailedToReadFile(mango_format_w32status(GetLastError()));
+		if (DWORD num_bytes{ 0 }; !ReadFile(file_handle, image_buffer.get(), file_size, &num_bytes, FALSE))
+			throw FailedToReadFile{ mango_format_w32status(GetLastError()) };
 
 		return manual_map(process, image_buffer.get());
 	}

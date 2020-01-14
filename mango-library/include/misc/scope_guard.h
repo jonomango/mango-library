@@ -11,7 +11,7 @@ namespace mango {
 	class ScopeGuard {
 	public:
 		ScopeGuard(const Callable& callable, const Args& ...args)
-			: m_callable(callable), m_arguments(args...) {}
+			: m_callable{ callable }, m_arguments{ args... } {}
 
 		~ScopeGuard() {
 			// destructor shouldn't throw
@@ -37,8 +37,8 @@ namespace mango {
 		}
 
 	private:
-		Callable m_callable;
-		Arguments m_arguments;
+		const Callable m_callable;
+		const Arguments m_arguments;
 		bool m_should_cancel = false;
 	};
 } // namespace mango

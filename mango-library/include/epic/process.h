@@ -14,9 +14,9 @@ namespace mango {
 	class Process {
 	public:
 		struct HandleInfo {
-			HANDLE m_handle;
-			uint8_t m_type;
-			ACCESS_MASK m_access;
+			HANDLE handle;
+			uint8_t type;
+			ACCESS_MASK access;
 		};
 
 		using ReadMemoryFunc			= void (*)(const Process* process, const void* address, void* buffer, size_t size);
@@ -28,17 +28,17 @@ namespace mango {
 		// options used at setup
 		struct SetupOptions {
 			// lazy loading, only load modules when they are requested
-			bool m_defer_module_loading = true;
+			bool defer_module_loading = true;
 
 			// the access mask to open the process with
-			ACCESS_MASK m_handle_access = PROCESS_ALL_ACCESS;
+			ACCESS_MASK handle_access = PROCESS_ALL_ACCESS;
 
 			// user-defineable
-			ReadMemoryFunc m_read_memory_func = default_read_memory_func;
-			WriteMemoryFunc m_write_memory_func = default_write_memory_func;
-			AllocateMemoryFunc m_allocate_memory_func = default_allocate_memory_func;
-			FreeMemoryFunc m_free_memory_func = default_free_memory_func;
-			CreateRemoteThreadFunc m_create_remote_thread_func = default_create_remote_thread_func;
+			ReadMemoryFunc read_memory_func = default_read_memory_func;
+			WriteMemoryFunc write_memory_func = default_write_memory_func;
+			AllocateMemoryFunc allocate_memory_func = default_allocate_memory_func;
+			FreeMemoryFunc free_memory_func = default_free_memory_func;
+			CreateRemoteThreadFunc create_remote_thread_func = default_create_remote_thread_func;
 		};
 
 		// containers
@@ -210,11 +210,11 @@ namespace mango {
 
 	public:
 		// override to change internal behavior
-		void set_read_memory_func(const ReadMemoryFunc& func) noexcept { this->m_options.m_read_memory_func = func; }
-		void set_write_memory_func(const WriteMemoryFunc& func) noexcept { this->m_options.m_write_memory_func = func; }
-		void set_allocate_memory_func(const AllocateMemoryFunc& func) noexcept { this->m_options.m_allocate_memory_func = func; }
-		void set_free_memory_func(const FreeMemoryFunc& func) noexcept { this->m_options.m_free_memory_func = func; }
-		void set_create_remote_thread_func(const CreateRemoteThreadFunc& func) noexcept { this->m_options.m_create_remote_thread_func = func; }
+		void set_read_memory_func(const ReadMemoryFunc& func) noexcept { this->m_options.read_memory_func = func; }
+		void set_write_memory_func(const WriteMemoryFunc& func) noexcept { this->m_options.write_memory_func = func; }
+		void set_allocate_memory_func(const AllocateMemoryFunc& func) noexcept { this->m_options.allocate_memory_func = func; }
+		void set_free_memory_func(const FreeMemoryFunc& func) noexcept { this->m_options.free_memory_func = func; }
+		void set_create_remote_thread_func(const CreateRemoteThreadFunc& func) noexcept { this->m_options.create_remote_thread_func = func; }
 
 		// default functions
 		static void  default_read_memory_func(const Process* const process, const void* const address, void* const buffer, const size_t size);

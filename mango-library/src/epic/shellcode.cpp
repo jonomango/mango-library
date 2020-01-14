@@ -28,10 +28,10 @@ namespace mango {
 	// Process::create_remote_thread()
 	// Shellcode::free()
 	void Shellcode::execute(const Process& process, const uintptr_t argument) const {
-		const auto address = this->allocate(process);
+		const auto address{ this->allocate(process) };
 
 		// free the memory when we're done
-		ScopeGuard _guard(&Shellcode::free, std::ref(process), address);
+		const ScopeGuard _guard{ &Shellcode::free, std::ref(process), address };
 
 		this->write(process, address);
 		process.create_remote_thread(address, argument);
@@ -40,11 +40,11 @@ namespace mango {
 	// push raw data, used by push()
 	Shellcode& Shellcode::push_raw(const void* const data, const size_t size) {
 		// resize
-		const auto old_size = this->m_data.size();
+		const auto oldsize{ this->m_data.size() };
 		this->m_data.resize(this->m_data.size() + size);
 
 		// write
-		memcpy(this->m_data.data() + old_size, data, size);
+		std::memcpy(this->m_data.data() + oldsize, data, size);
 		return *this;
 	}
 

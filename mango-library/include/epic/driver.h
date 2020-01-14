@@ -10,10 +10,10 @@ namespace mango {
 	public:
 		struct SetupOptions {
 			// dwDesiredAccess
-			uint32_t m_access = GENERIC_READ | GENERIC_WRITE;
+			uint32_t access = GENERIC_READ | GENERIC_WRITE;
 
 			// dwFlagsAndAttributes
-			uint32_t m_attributes = FILE_ATTRIBUTE_NORMAL;
+			uint32_t attributes = FILE_ATTRIBUTE_NORMAL;
 		};
 
 	public:

@@ -90,13 +90,13 @@ namespace mango {
 				// copy into this->m_data
 				memcpy_s(this->m_data.data() + old_size, length, value.m_data.data(), length);
 			} else if constexpr (std::is_same_v<Type, StringWrapper>) {
-				const auto length = value.get_size();
+				const auto length = value.size();
 
 				// resize
 				this->m_data.resize(this->m_data.size() + length);
 
 				// copy into this->m_data
-				memcpy_s(this->m_data.data() + old_size, length, value.get_str(), length);
+				memcpy_s(this->m_data.data() + old_size, length, value.string(), length);
 			} else if constexpr ((std::is_array_v<Type> || Shellcode::is_stdcontainer<Type>::value) && sizeof(value[0]) == 1) { // byte arrays
 				auto length = sizeof(value) - 1;
 				const void* data = &value;

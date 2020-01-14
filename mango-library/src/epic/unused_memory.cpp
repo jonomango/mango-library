@@ -11,10 +11,10 @@ namespace {
 	// returned memory ranges are sorted, bigger->smallest
 	template <typename Predicate>
 	std::vector<mango::MemoryRange> find_all_unused_memory(const mango::Process& process, const size_t min_size, Predicate&& predicate) {
-		std::vector<mango::MemoryRange> unused_memory;
+		std::vector<mango::MemoryRange> unused_memory{};
 
-		MEMORY_BASIC_INFORMATION mbi;
-		for (const void* address = 0; VirtualQueryEx(process.get_handle(), address, &mbi, sizeof(mbi));
+		MEMORY_BASIC_INFORMATION mbi{};
+		for (const void* address{ 0 }; VirtualQueryEx(process.get_handle(), address, &mbi, sizeof(mbi));
 			*reinterpret_cast<uintptr_t*>(&address) += mbi.RegionSize) {
 
 			// not valid
@@ -22,11 +22,11 @@ namespace {
 				continue;
 
 			// read the entire region
-			const auto buffer = std::make_unique<uint8_t[]>(mbi.RegionSize);
+			const auto buffer{ std::make_unique<uint8_t[]>(mbi.RegionSize) };
 			process.read(address, buffer.get(), mbi.RegionSize);
 
 			// starting from the end, count how many null bytes
-			size_t num_null_bytes = 0;
+			size_t num_null_bytes{ 0 };
 			for (; num_null_bytes < mbi.RegionSize && !buffer[mbi.RegionSize - num_null_bytes - 1]; ++num_null_bytes);
 
 			// safety amount
@@ -70,7 +70,7 @@ namespace mango {
 
 	// wrapper around find_all_unused_*_memory()
 	uintptr_t find_unused_xrw_memory(const Process& process, const size_t size) {
-		const auto unused_memory = find_all_unused_xrw_memory(process, size);
+		const auto unused_memory{ find_all_unused_xrw_memory(process, size) };
 		if (unused_memory.empty())
 			return 0;
 
@@ -79,7 +79,7 @@ namespace mango {
 
 	// wrapper around find_all_unused_*_memory()
 	uintptr_t find_unused_xr_memory(const Process& process, const size_t size) {
-		const auto unused_memory = find_all_unused_xr_memory(process, size);
+		const auto unused_memory{ find_all_unused_xr_memory(process, size) };
 		if (unused_memory.empty())
 			return 0;
 

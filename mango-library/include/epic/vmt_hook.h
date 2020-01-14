@@ -15,10 +15,10 @@ namespace mango {
 		struct SetupOptions {
 			// to note, if you don't replace the table you will be hooking the function for EVERY instance of the class
 			// while replacing the table will only hook for this specific instance.
-			bool m_replace_table = true;
+			bool replace_table = true;
 
 			// whether we should call release in the destructor or not
-			bool m_auto_release = true;
+			bool auto_release = true;
 		};
 
 	public:
@@ -30,7 +30,7 @@ namespace mango {
 			this->setup(process, instance, options); 
 		}
 		~VmtHook() {
-			if (this->m_options.m_auto_release)
+			if (this->m_options.auto_release)
 				this->release(); 
 		}
 

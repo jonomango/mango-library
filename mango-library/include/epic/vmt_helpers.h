@@ -13,9 +13,9 @@ namespace mango {
 	}
 
 	// only used when in same memory-space
-	template <size_t index, typename Ret, typename... Args>
-	Ret call_vfunc(void* const instance, const Args ...args) {
-		using fn = Ret(__thiscall*)(void*, Args...);
-		return ((*reinterpret_cast<fn**>(instance))[index])(instance, args...);
+	template <typename Ret, typename... Args>
+	Ret call_vfunc(const size_t index, const void* const instance, const Args ...args) {
+		using fn = Ret(__thiscall*)(const void*, Args...);
+		return ((*reinterpret_cast<fn* const*>(instance))[index])(instance, args...);
 	}
 } // namespace mango

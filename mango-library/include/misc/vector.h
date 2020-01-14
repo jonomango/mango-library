@@ -18,7 +18,7 @@ namespace mango {
 	class Vector : public std::array<T, C> {
 	public:
 		// std::array::fill() is not constexpr btw
-		constexpr explicit Vector(const T& scalar = T(0)) noexcept { 
+		constexpr explicit Vector(const T& scalar = T{ 0 }) noexcept {
 			for_constexpr<0, C, 1>([&](const size_t i) {
 				this->operator[](i) = scalar;
 			});
@@ -42,7 +42,7 @@ namespace mango {
 
 		// Vector(...) or Vector({...}) or Vector v = {...}
 		template <typename... Args>
-		constexpr Vector(const Args&... args) noexcept : std::array<T, C>({ T(args)... }) {
+		constexpr Vector(const Args&... args) noexcept : std::array<T, C>{ T(args)... } {
 			static_assert(sizeof...(Args) == C, "Incorrect amount of arguments provided");
 		}
 
@@ -51,7 +51,7 @@ namespace mango {
 			return *this = (*this + other);
 		}
 		constexpr Vector<T, C> operator+(const Vector<T, C>& other) const {
-			Vector<T, C> copy(*this);
+			Vector<T, C> copy{ *this };
 			for_constexpr<0, C, 1>([&](const size_t i) {
 				copy[i] += other[i];
 			});
@@ -63,7 +63,7 @@ namespace mango {
 			return *this = (*this - other);
 		}
 		constexpr Vector<T, C> operator-(const Vector<T, C>& other) const {
-			Vector<T, C> copy(*this);
+			Vector<T, C> copy{ *this };
 			for_constexpr<0, C, 1>([&](const size_t i) {
 				copy[i] -= other[i];
 			});
@@ -75,7 +75,7 @@ namespace mango {
 			return *this = (*this * other);
 		}
 		constexpr Vector<T, C> operator*(const Vector<T, C>& other) const {
-			Vector<T, C> copy(*this);
+			Vector<T, C> copy{ *this };
 			for_constexpr<0, C, 1>([&](const size_t i) {
 				copy[i] *= other[i];
 			});
@@ -87,7 +87,7 @@ namespace mango {
 			return *this = (*this / other);
 		}
 		constexpr Vector<T, C> operator/(const Vector<T, C>& other) const {
-			Vector<T, C> copy(*this);
+			Vector<T, C> copy{ *this };
 			for_constexpr<0, C, 1>([&](const size_t i) {
 				copy[i] /= other[i];
 			});
@@ -97,8 +97,8 @@ namespace mango {
 		// constexpr accumulate function
 		template <typename Fn>
 		constexpr T accumulate(const size_t start, const size_t end, const T initial, const Fn op) const noexcept {
-			T value = initial;
-			for (size_t i = start; i < end; ++i)
+			T value{ initial };
+			for (size_t i{ start }; i < end; ++i)
 				value = T(op(value, this->at(i)));
 			return value;
 		}
@@ -116,11 +116,11 @@ namespace mango {
 			static_assert(D > 0, "D must be greater than 0");
 
 			// (x * x) + (y * y) + ...
-			const auto square = [](const double acc, const double x) {
+			const auto square{ [](const double acc, const double x) {
 				return acc + x * x;
-			};
+			} };
 
-			const auto total = this->accumulate(0, D, 0.0, square);
+			const auto total{ this->accumulate(0, D, 0.0, square) };
 			if (!total)
 				return 0.0;
 
@@ -132,15 +132,15 @@ namespace mango {
 			// only floats
 			static_assert(std::is_floating_point<T>::value, "Only floating-point vectors can be normalized");
 
-			const auto length = this->length();
+			const auto length{ this->length() };
 
 			// can't divide by 0
 			if (!length)
 				return;
 
-			const auto divide = [=](const T x) {
+			const auto divide{ [=](const T x) {
 				return T(x / length);
-			};
+			} };
 
 			// divide all elements by length
 			std::transform(this->begin(), this->end(), this->begin(), divide);
@@ -154,23 +154,24 @@ namespace mango {
 		// find the median (obviously)
 		// also it returns double instead of T due to cases where C is even
 		constexpr double median() const noexcept {
-			const auto center = C / 2 - 1;
-			if (C % 2 == 0) // even
+			const auto center{ C / 2 - 1 };
+			if (C % 2 == 0) { // even
 				return (double(this->at(center)) + double(this->at(center + 1))) / 2.0;
-			else // odd
+			} else { // odd
 				return double(this->at(center));
+			}
 		}
 
 	private:
 		// only arithmetic values
-		static_assert(std::is_arithmetic<T>::value, "Only arithmetic types supported");
+		static_assert(std::is_arithmetic_v<T>, "Only arithmetic types supported");
 	};
 
 	// lets you do stuff like std::cout << vec;
 	template <typename T, const size_t C>
 	std::ostream& operator<<(std::ostream& stream, const Vector<T, C>& vec) {
 		stream << "[ " << +vec.front();
-		for (size_t i = 1; i < vec.size(); ++i)
+		for (size_t i{ 1 }; i < vec.size(); ++i)
 			stream << ", " << +vec[i];
 		stream << " ]";
 		return stream;
@@ -180,7 +181,7 @@ namespace mango {
 	template <typename T, const size_t C>
 	std::wostream& operator<<(std::wostream& stream, const Vector<T, C>& vec) {
 		stream << L"[ " << +vec.front();
-		for (size_t i = 1; i < vec.size(); ++i)
+		for (size_t i{ 1 }; i < vec.size(); ++i)
 			stream << L", " << +vec[i];
 		stream << L" ]";
 		return stream;

@@ -43,7 +43,7 @@ namespace mango {
 				return;
 
 			// create a stringstream with the data
-			std::ostringstream ss;
+			std::ostringstream ss{};
 			(ss << ... << args);
 			channel(std::move(ss));
 		}

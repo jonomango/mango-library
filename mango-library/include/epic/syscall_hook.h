@@ -15,7 +15,7 @@ namespace mango {
 
 		struct SetupOptions {
 			// whether we should call release in the destructor or not
-			bool m_auto_release = true;
+			bool auto_release = true;
 		};
 
 	public:
@@ -26,7 +26,7 @@ namespace mango {
 
 		// calls release()
 		~Wow64SyscallHook() {
-			if (this->m_options.m_auto_release)
+			if (this->m_options.auto_release)
 				this->release(); 
 		}
 

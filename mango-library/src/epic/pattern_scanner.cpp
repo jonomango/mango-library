@@ -13,27 +13,27 @@ namespace mango {
 	// input is case insensitive and spaces are completely ignored
 	// these two patterns are treated the same: "25 ? F3 ? 14 ? ? C9" && "25?f3?14??c9"
 	uintptr_t find_pattern(const Process& process, const std::string_view module_name, const std::string_view pattern) {
-		const auto values = find_all_patterns(process, module_name, pattern);
+		const auto values{ find_all_patterns(process, module_name, pattern) };
 		return values.empty() ? 0 : values.front();
 	}
 
 	// same as find_pattern() but returns all occurences
 	std::vector<uintptr_t> find_all_patterns(const Process& process, const std::string_view module_name, const std::string_view pattern) {
-		const auto mod = process.get_module(module_name);
+		const auto mod{ process.get_module(module_name) };
 		if (!mod)
-			throw FailedToFindModule();
+			throw FailedToFindModule{};
 
 		// from the start of the module memory to the end
-		const auto start = mod->get_image_base(),
-			end = start + mod->get_image_size();
+		const auto start{ mod->get_image_base() },
+			end{ start + mod->get_image_size() };
 
 		// read
-		const auto buffer = std::make_unique<uint8_t[]>(end - start);
+		const auto buffer{ std::make_unique<uint8_t[]>(end - start) };
 		process.read(start, buffer.get(), end - start);
 
 		// translate two chars into their byte representation
 		// i.e 'F' and 'F' turn into 0xFF
-		const auto parse_byte = [](char c1, char c2) {
+		const auto parse_byte{ [](char c1, char c2) {
 			c1 = std::toupper(c1);
 			c2 = std::toupper(c2);
 
@@ -48,11 +48,11 @@ namespace mango {
 			else
 				b += uint8_t(10 + (c2 - 'A'));
 			return b;
-		};
+		} };
 
 		// if above 0xFF then wildcards follow
-		std::vector<uint16_t> raw_pattern;
-		for (size_t i = 0; i < pattern.size(); ++i) {
+		std::vector<uint16_t> raw_pattern{};
+		for (size_t i{ 0 }; i < pattern.size(); ++i) {
 			if (pattern[i] == ' ')
 				continue;
 
@@ -71,14 +71,14 @@ namespace mango {
 			}
 		}
 
-		std::vector<uintptr_t> found_patterns;
+		std::vector<uintptr_t> found_patterns{};
 
 		// check for matching sequence
-		for (uintptr_t current = start; current < (end - raw_pattern.size()); ++current) {
-			bool does_match = true;
+		for (uintptr_t current{ start }; current < (end - raw_pattern.size()); ++current) {
+			bool does_match{ true };
 
 			// check if pattern matches
-			for (size_t i = 0, j = 0; i < raw_pattern.size(); ++i, ++j) {
+			for (size_t i{ 0 }, j = 0; i < raw_pattern.size(); ++i, ++j) {
 				if (raw_pattern[i] >= 0x100) {
 					// skip all the consecutive wildcards at once
 					j += raw_pattern[i] - 0x100;

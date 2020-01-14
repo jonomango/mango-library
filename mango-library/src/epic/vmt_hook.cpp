@@ -23,7 +23,7 @@ namespace mango {
 		// create a new table, copy contents and swap
 		// else:
 		// just write directly to the current vtable
-		if (options.m_replace_table) {
+		if (options.replace_table) {
 			// attempt to calculate vtable size ourselves (not accurate)
 			try {
 				this->m_vtable_size = 0;
@@ -40,7 +40,7 @@ namespace mango {
 
 			// if it's 0 then its not a virtual class lmao
 			if (!this->m_vtable_size)
-				throw InvalidVtableSize();
+				throw InvalidVtableSize{};
 
 			// allocate a new vtable
 			this->m_vtable = uintptr_t(process.alloc_virt_mem(this->m_vtable_size + process.get_ptr_size()));
@@ -66,7 +66,7 @@ namespace mango {
 			return;
 
 		// restore
-		if (this->m_options.m_replace_table) {
+		if (this->m_options.replace_table) {
 			// no need to manually unhook every function since we can just replace the table
 			this->m_process->is_64bit() ?
 				this->m_process->write<uint64_t>(this->m_instance, uint64_t(this->m_original_vtable)) :
@@ -93,9 +93,9 @@ namespace mango {
 	uintptr_t VmtHook::hook(const size_t index, const uintptr_t func) {
 		// if function already hooked
 		if (this->m_original_funcs.find(index) != this->m_original_funcs.end())
-			throw FunctionAlreadyHooked();
+			throw FunctionAlreadyHooked{};
 
-		const auto original = this->hook_internal(index, func);
+		const auto original{ this->hook_internal(index, func) };
 		if (original) 
 			return this->m_original_funcs[index] = original;
 
@@ -105,7 +105,7 @@ namespace mango {
 
 	// unhook a previously hooked function
 	void VmtHook::unhook(const size_t index) {
-		if (const auto it = this->m_original_funcs.find(index); it != this->m_original_funcs.end()) {
+		if (const auto it{ this->m_original_funcs.find(index) }; it != this->m_original_funcs.end()) {
 			this->hook_internal(index, it->second);
 			this->m_original_funcs.erase(it);
 		}
@@ -115,13 +115,13 @@ namespace mango {
 	uintptr_t VmtHook::hook_internal(const size_t index, const uintptr_t func) {
 		if (this->m_process->is_64bit()) {
 			// the address of where the virtual function is
-			const auto address = this->m_vtable + sizeof(uint64_t) * index;
+			const auto address{ this->m_vtable + sizeof(uint64_t) * index };
 
 			// set page protection to allow writing
-			const auto old_prot = this->m_process->set_mem_prot(address, sizeof(uint64_t), PAGE_READWRITE);
+			const auto old_prot{ this->m_process->set_mem_prot(address, sizeof(uint64_t), PAGE_READWRITE) };
 
 			// remember the old value, then overwrite it
-			const auto original = this->m_process->read<uint64_t>(address);
+			const auto original{ this->m_process->read<uint64_t>(address) };
 			this->m_process->write<uint64_t>(address, func);
 
 			// restore page protection to old value
@@ -130,13 +130,13 @@ namespace mango {
 			return uintptr_t(original);
 		} else {
 			// the address of where the virtual function is
-			const auto address = this->m_vtable + sizeof(uint32_t) * index;
+			const auto address{ this->m_vtable + sizeof(uint32_t) * index };
 
 			// set page protection to allow writing
-			const auto old_prot = this->m_process->set_mem_prot(address, sizeof(uint32_t), PAGE_READWRITE);
+			const auto old_prot{ this->m_process->set_mem_prot(address, sizeof(uint32_t), PAGE_READWRITE) };
 
 			// remember the old value, then overwrite it
-			const auto original = this->m_process->read<uint32_t>(address);
+			const auto original{ this->m_process->read<uint32_t>(address) };
 			this->m_process->write<uint32_t>(address, uint32_t(func));
 
 			// restore page protection to old value

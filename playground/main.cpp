@@ -68,7 +68,13 @@ int main() {
 	run_unit_tests();
 
 	try {
-
+		const std::string name{ "ravioli" };
+		switch (mango::Fnv1a<uint64_t>{ name }) {
+		case mango::Fnv1a<uint64_t>{ "frog" }:
+			break;
+		case mango::Fnv1a<uint64_t>{ "fish" }:
+			break;
+		}
 	} catch (std::exception& e) {
 		mango::logger.error(e.what());
 	}
