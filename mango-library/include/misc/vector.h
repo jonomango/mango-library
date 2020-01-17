@@ -20,7 +20,7 @@ namespace mango {
 		// std::array::fill() is not constexpr btw
 		constexpr explicit Vector(const T& scalar = T{ 0 }) noexcept {
 			for_constexpr<0, C, 1>([&](const size_t i) {
-				this->operator[](i) = scalar;
+				(*this)[i] = scalar;
 			});
 		}
 
@@ -28,7 +28,7 @@ namespace mango {
 		template <typename Type>
 		constexpr explicit Vector(const Vector<Type, C>& other) noexcept {
 			for_constexpr<0, C, 1>([&](const size_t i) {
-				this->operator[](i) = T(other[i]);
+				(*this)[i] = T(other[i]);
 			});
 		}
 
@@ -36,7 +36,7 @@ namespace mango {
 		template <typename Type>
 		constexpr explicit Vector(const std::array<Type, C>& other) noexcept {
 			for_constexpr<0, C, 1>([&](const size_t i) {
-				this->operator[](i) = T(other[i]);
+				(*this)[i] = T(other[i]);
 			});
 		}
 
@@ -94,77 +94,72 @@ namespace mango {
 			return copy;
 		}
 
-		// constexpr accumulate function
-		template <typename Fn>
-		constexpr T accumulate(const size_t start, const size_t end, const T initial, const Fn op) const noexcept {
-			T value{ initial };
-			for (size_t i{ start }; i < end; ++i)
-				value = T(op(value, this->at(i)));
-			return value;
-		}
-
-		// default op is std::plus
-		constexpr T accumulate(const size_t start, const size_t end, const T initial = T(0)) const noexcept {
-			return this->accumulate(start, end, initial, std::plus<T>());
-		}
-
 		// get the length (or magnitude) of a vector
 		template <const size_t D = C>
 		double length() const noexcept {
 			// D must be in the range of (0, C]
 			static_assert(D <= C, "D cannot be higher than C");
-			static_assert(D > 0, "D must be greater than 0");
+			static_assert(D >= 1, "D must be one or greater");
 
-			// (x * x) + (y * y) + ...
-			const auto square{ [](const double acc, const double x) {
-				return acc + x * x;
-			} };
+			double total{ 0 };
+			for (const auto x : *this)
+				total += x * x;
 
-			const auto total{ this->accumulate(0, D, 0.0, square) };
-			if (!total)
-				return 0.0;
-
-			return std::sqrt(total);
+			return total <= 0.0 ? 0.0 : std::sqrt(total);
 		}
 
 		// normalize a vector (in place)
-		void normalize() noexcept {
+		const Vector<T, C>& normalize() noexcept {
 			// only floats
-			static_assert(std::is_floating_point<T>::value, "Only floating-point vectors can be normalized");
+			static_assert(std::is_floating_point_v<T>, "Only floating-point vectors can be normalized");
 
 			const auto length{ this->length() };
 
 			// can't divide by 0
-			if (!length)
-				return;
+			if (length <= 0.0)
+				return *this;
 
-			const auto divide{ [=](const T x) {
-				return T(x / length);
-			} };
+			for (auto& x : *this)
+				x /= T(length);
 
-			// divide all elements by length
-			std::transform(this->begin(), this->end(), this->begin(), divide);
+			return *this;
+		}
+
+		// return a normalized vector
+		static Vector<T, C> normalize(Vector<T, C> vec) noexcept {
+			vec.normalize();
+			return vec;
+		}
+
+		// the sum of all elements
+		constexpr T sum() const noexcept {
+			T total{ 0 };
+			for (const auto x : *this)
+				total += x;
+			return total;
 		}
 
 		// find the mean (obviously)
 		constexpr double mean() const noexcept {
-			return this->accumulate(0, this->size(), 0.0) / double(C);
+			return this->sum() / double(C);
 		}
 
 		// find the median (obviously)
-		// also it returns double instead of T due to cases where C is even
 		constexpr double median() const noexcept {
 			const auto center{ C / 2 - 1 };
 			if (C % 2 == 0) { // even
-				return (double(this->at(center)) + double(this->at(center + 1))) / 2.0;
+				return double((*this)[center] + (*this)[center + 1]) / 2.0;
 			} else { // odd
-				return double(this->at(center));
+				return double((*this)[center]);
 			}
 		}
 
 	private:
 		// only arithmetic values
 		static_assert(std::is_arithmetic_v<T>, "Only arithmetic types supported");
+
+		// dimension >= 2
+		static_assert(C > 1, "Must have a size of two or more");
 	};
 
 	// lets you do stuff like std::cout << vec;
@@ -173,8 +168,7 @@ namespace mango {
 		stream << "[ " << +vec.front();
 		for (size_t i{ 1 }; i < vec.size(); ++i)
 			stream << ", " << +vec[i];
-		stream << " ]";
-		return stream;
+		return stream << " ]";
 	}
 
 	// lets you do stuff like std::wcout << vec;
@@ -183,15 +177,20 @@ namespace mango {
 		stream << L"[ " << +vec.front();
 		for (size_t i{ 1 }; i < vec.size(); ++i)
 			stream << L", " << +vec[i];
-		stream << L" ]";
-		return stream;
+		return stream << L" ]";
 	}
 
-	// common uses
+	// floats
 	using Vec2f = Vector<float, 2>;
 	using Vec3f = Vector<float, 3>;
 	using Vec4f = Vector<float, 4>;
+
+	// doubles
+	using Vec2d = Vector<float, 2>;
+	using Vec3d = Vector<float, 3>;
+	using Vec4d = Vector<float, 4>;
 		  
+	// ints
 	using Vec2i = Vector<int, 2>;
 	using Vec3i = Vector<int, 3>;
 	using Vec4i = Vector<int, 4>;

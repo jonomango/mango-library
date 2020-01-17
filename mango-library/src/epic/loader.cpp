@@ -2,6 +2,7 @@
 
 #include "../../include/epic/process.h"
 #include "../../include/epic/shellcode.h"
+#include "../../include/epic/shellcode_wrappers.h"
 #include "../../include/misc/logger.h"
 #include "../../include/misc/scope_guard.h"
 #include "../../include/misc/error_codes.h"
@@ -341,7 +342,7 @@ namespace mango {
 				"\x48\xA3", ret_address, // movabs [ret_address], rax
 				"\x48\x83\xC4\x20", // add rsp, 0x20
 				"\x31\xC0", // xor eax, eax
-				Shellcode::ret()
+				shw::ret()
 			}.execute(process);
 
 			// the HMODULE returned by LoadLibrary
@@ -352,7 +353,7 @@ namespace mango {
 				"\xB8", uint32_t(func_addr), // mov eax, func_addr
 				"\xFF\xD0", // call eax
 				"\xA3", uint32_t(ret_address), // mov [ret_address], eax
-				Shellcode::ret()
+				shw::ret()
 			}.execute(process);
 
 			// the HMODULE returned by LoadLibrary

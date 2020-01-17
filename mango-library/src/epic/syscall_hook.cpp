@@ -1,8 +1,9 @@
 #include "../../include/epic/syscall_hook.h"
 
 #include "../../include/epic/process.h"
-#include "../../include/epic/shellcode.h"
 #include "../../include/misc/error_codes.h"
+#include "../../include/epic/shellcode.h"
+#include "../../include/epic/shellcode_wrappers.h"
 
 
 namespace mango {
@@ -82,7 +83,7 @@ namespace mango {
 			"\x0F\x85\x04\x00\x00\x00", // jne 4
 			"\x89\xD0", // mov eax, edx
 			"\x5A", // pop edx (for the syscall)
-			Shellcode::ret(),
+			shw::ret(),
 
 			// restore the syscall
 			"\x58", // pop eax

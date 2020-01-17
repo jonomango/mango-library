@@ -72,7 +72,7 @@ namespace mango {
 			using Type = std::remove_const_t<std::remove_reference_t<Ret>>;
 
 			// size before we add shibble
-			const auto old_size = this->m_data.size();
+			const auto old_size(this->m_data.size());
 
 			// for integral types
 			if constexpr (std::is_integral_v<Type>) {
@@ -82,7 +82,7 @@ namespace mango {
 				// copy
 				*reinterpret_cast<Type*>(this->m_data.data() + old_size) = value;
 			} else if constexpr (std::is_same_v<Type, Shellcode>) {
-				const auto length = value.m_data.size();
+				const auto length(value.m_data.size());
 
 				// resize
 				this->m_data.resize(this->m_data.size() + length);
@@ -90,7 +90,7 @@ namespace mango {
 				// copy into this->m_data
 				memcpy_s(this->m_data.data() + old_size, length, value.m_data.data(), length);
 			} else if constexpr (std::is_same_v<Type, StringWrapper>) {
-				const auto length = value.size();
+				const auto length(value.size());
 
 				// resize
 				this->m_data.resize(this->m_data.size() + length);
@@ -98,8 +98,8 @@ namespace mango {
 				// copy into this->m_data
 				memcpy_s(this->m_data.data() + old_size, length, value.string(), length);
 			} else if constexpr ((std::is_array_v<Type> || Shellcode::is_stdcontainer<Type>::value) && sizeof(value[0]) == 1) { // byte arrays
-				auto length = sizeof(value) - 1;
-				const void* data = &value;
+				auto length(sizeof(value) - 1);
+				const void* data(&value);
 				if constexpr (Shellcode::is_stdcontainer<Type>::value) {
 					length = value.size();
 					data = value.data();
@@ -111,92 +111,11 @@ namespace mango {
 				// copy into this->m_data
 				memcpy_s(this->m_data.data() + old_size, length, data, length);
 			} else { // other types
-				static_assert(false, "Only integral types or byte arrays allowed");
+				static_assert(false, "Type not supported");
 			}
 
 			// for chaining
 			return *this;
-		}
-
-		// ret instruction, ret() or ret(bytes)
-		static constexpr StringWrapper ret() { return "\xC3"; }
-		static constexpr std::array<uint8_t, 3> ret(const uint16_t size) {
-			return { uint8_t(0xC2), uint8_t(size), uint8_t(size >> 8) };
-		}
-
-		// start a stackframe
-		template <bool is64bit>
-		static constexpr StringWrapper prologue() {
-			if constexpr (is64bit) {
-				return "\x55\x48\x89\xE5";
-			} else {
-				return "\x55\x89\xE5";
-			}
-		}
-
-		// end a stackframe
-		template <bool is64bit>
-		static constexpr StringWrapper epilogue() {
-			if constexpr (is64bit) {
-				return "\x48\x89\xEC\x5D";
-			} else {
-				return "\x89\xEC\x5D";
-			}
-		}
-
-		// align esp on a power of 2 boundary
-		static constexpr std::array<uint8_t, 6> align_stack(const uint8_t boundary) {
-			return { uint8_t(0x81), uint8_t(0x81), boundary, uint8_t(0xFF), uint8_t(0xFF), uint8_t(0xFF) };
-		}
-
-		// shellcode to switch execution from x86 to x64
-		static constexpr StringWrapper enter_x64() {
-			return "\x6A\x33"          // push 0x33 (x64 code segment)
-				"\xE8\x00\x00\x00\x00" // call +0x5 (basically just push eip and continue execution)
-				"\x83\x04\x24\x05"     // add dword ptr [esp], 0x5
-				"\xCB";                // retf
-		}
-
-		// shellcode to switch execution from x64 to x86
-		static constexpr StringWrapper enter_x86() {
-			return "\xE8\x00\x00\x00\x00"      // call +0x5 (basically just push rip and continue execution)
-				"\xC7\x44\x24\x04\x23\x00\x00\x00" // mov dword ptr [rsp + 4], 0x23 (x86 code segment)
-				"\x48\x83\x04\x24\x0E"         // add qword ptr [rsp], 0x0E
-				"\xCB";                        // retf
-		}
-
-		// example output: "AAAABAAACAAA"
-		template <size_t size, size_t block_size = 4>
-		static constexpr std::array<uint8_t, size> cyclic() {
-			static_assert(size > 0);
-			static_assert(block_size > 0);
-			static_assert(size % block_size == 0);
-
-			std::array<uint8_t, size> data;
-			for (size_t i = 0; i < size; i += block_size) {
-				const auto current = i / block_size;
-				for (size_t j = 0; j < block_size; ++j)
-					data[i + j] = uint8_t('A' + (current / math::pow(26, j)) % 26);
-			}
-
-			return data;
-		}
-
-		// the offset from the start of a cyclic shellcode
-		template <size_t block_size = 4>
-		static constexpr uintptr_t cyclic_offset(const std::array<uint8_t, block_size>& value) {
-			uintptr_t offset = 0;
-			for (size_t i = 0; i < block_size; ++i)
-				offset += uintptr_t(value[i] - 'A') * math::pow(26, i);
-			return offset;
-		}
-
-		template <typename T>
-		static constexpr uintptr_t cyclic_offset(T&& value) {
-			uintptr_t offset = 0;
-			for (size_t i = 0; i < sizeof(T); ++i)
-				offset += uintptr_t(uint8_t(value >> (8 * i)) - 'A') * math::pow(26, i);
-			return offset * sizeof(T);
 		}
 
 	private:

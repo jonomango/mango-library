@@ -62,19 +62,15 @@ void setup_logger(std::ostream& stream = std::cout) {
 	mango::logger.success("Logging channels initialized.");
 }
 
+
+
 int main() {
 	setup_logger();
 
 	run_unit_tests();
 
 	try {
-		const std::string name{ "ravioli" };
-		switch (mango::Fnv1a<uint64_t>{ name }) {
-		case mango::Fnv1a<uint64_t>{ "frog" }:
-			break;
-		case mango::Fnv1a<uint64_t>{ "fish" }:
-			break;
-		}
+		std::cout << -1 % 16 << std::endl;
 	} catch (std::exception& e) {
 		mango::logger.error(e.what());
 	}
