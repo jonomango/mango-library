@@ -114,6 +114,9 @@ namespace mango {
 		// this uses the internal list of modules to find the function address (doesn't account for ApiSchema)
 		uintptr_t get_proc_addr(const std::string_view module_name, const std::string_view func_name) const;
 
+		// api name -> dll name
+		std::string resolve_apiset(const std::string_view name) const;
+
 		// peb structures
 		PEB_M32 get_peb32() const;
 		PEB_M64 get_peb64() const;

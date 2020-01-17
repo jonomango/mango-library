@@ -70,7 +70,19 @@ int main() {
 	run_unit_tests();
 
 	try {
-		std::cout << -1 % 16 << std::endl;
+		using namespace mango;
+
+		const auto process(Process::current({ .defer_module_loading = false }));
+
+		for (const auto& [name, entries] : process.get_modules()) {
+			logger.info(name);
+		}
+
+		logger.info(process.resolve_apiset("api-ms-win-crt-string-l1-1-0.dll"));
+		logger.info(std::hex, process.get_proc_addr("api-ms-win-crt-string-l1-1-0.dll", "tolower"));
+		logger.info(std::hex, process.get_proc_addr("ucrtbase.dll", "tolower"));
+
+		// TODO: ApiSet in manual mapper to move more stuff out of the injected thread
 	} catch (std::exception& e) {
 		mango::logger.error(e.what());
 	}

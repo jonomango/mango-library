@@ -15,6 +15,36 @@ namespace mango {
 		void* UniqueThread;
 	} CLIENT_ID, *PCLIENT_ID;
 
+	// ApiSet stuff is taken from https://lucasg.github.io/2017/10/15/Api-set-resolution/
+	typedef struct _API_SET_NAMESPACE {
+		ULONG Version;     // v2 on Windows 7, v4 on Windows 8.1  and v6 on Windows 10
+		ULONG Size;        // apiset map size (usually the .apiset section virtual size)
+		ULONG Flags;       // according to Geoff Chappell,  tells if the map is sealed or not.
+		ULONG Count;       // hash table entry count
+		ULONG EntryOffset; // Offset to the api set entries values
+		ULONG HashOffset;  // Offset to the api set entries hash indexes
+		ULONG HashFactor;  // multiplier to use when computing hash 
+	} API_SET_NAMESPACE;
+
+	// Hash table value
+	typedef struct _API_SET_NAMESPACE_ENTRY {
+		ULONG Flags;        // sealed flag in bit 0
+		ULONG NameOffset;   // Offset to the ApiSet library name PWCHAR (e.g. "api-ms-win-core-job-l2-1-1")
+		ULONG NameLength;   // Ignored
+		ULONG HashedLength; // Apiset library name length
+		ULONG ValueOffset;  // Offset the list of hosts library implement the apiset contract (points to API_SET_VALUE_ENTRY array)
+		ULONG ValueCount;   // Number of hosts libraries 
+	} API_SET_NAMESPACE_ENTRY;
+
+	// Host Library entry
+	typedef struct _API_SET_VALUE_ENTRY {
+		ULONG Flags;        // sealed flag in bit 0
+		ULONG NameOffset;   // Offset to the ApiSet library name PWCHAR (e.g. "api-ms-win-core-job-l2-1-1")
+		ULONG NameLength;   // Apiset library name length
+		ULONG ValueOffset;  // Offset to the Host library name PWCHAR (e.g. "ucrtbase.dll")
+		ULONG ValueLength;  // Host library name length
+	} API_SET_VALUE_ENTRY;
+
 	typedef struct _INITIAL_TEB {
 		void* StackBase;
 		void* StackLimit;
@@ -83,6 +113,7 @@ namespace mango {
 	using LDR_DATA_TABLE_ENTRY_M32 = _LDR_DATA_TABLE_ENTRY_INTERNAL<uint32_t>;
 	using LDR_DATA_TABLE_ENTRY_M64 = _LDR_DATA_TABLE_ENTRY_INTERNAL<uint64_t>;
 
+	// http://terminus.rewolf.pl/terminus/structures/ntdll/_PEB_combined.html
 	template <typename Ptr>
 	struct _PEB_INTERNAL {
 		union {
@@ -98,6 +129,13 @@ namespace mango {
 		Ptr Mutant;
 		Ptr ImageBaseAddress;
 		Ptr Ldr;
+
+	private:
+		Ptr	    _padding1[0x8];
+		uint8_t _padding2[0x8];
+
+	public:
+		Ptr ApiSetMap;
 	};
 
 	using PEB_M32 = _PEB_INTERNAL<uint32_t>;

@@ -42,6 +42,9 @@ namespace mango {
 
 	mango_create_error(CantSetup64From32, "Cant setup a 64bit process from a 32bit process.");
 
+	mango_create_error(ApiSetInvalidName, "Provided ApiSet name doesn't begin with \"api-\" or \"ext-\".");
+	mango_create_error(FailedToResolveApiSetName, "Failed to resolve ApiSet name.");
+
 	mango_create_error(NotWow64Process, "Process is not running under WOW64.");
 	mango_create_error(NotA32BitProcess, "Process is not a 32bit process.");
 	mango_create_error(UnmatchingImageArchitecture, "Image architecture does not match the process architecture.");

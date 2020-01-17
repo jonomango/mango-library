@@ -152,22 +152,27 @@ namespace mango {
 
 	// get a loaded module, case-insensitive (passing "" for name returns the current process module)
 	const LoadedModule* Process::get_module(const std::string_view name) const {
-		std::string case_insensitive_name{ name };
+		std::string search_name{ name };
 
-		// return own module
-		if (name.empty())
-			case_insensitive_name = this->get_name();
+		if (name.empty()) /* return own module */ {
+			search_name = this->get_name();
+		} else {
+			// check if its in the apiset
+			try {
+				search_name = this->resolve_apiset(name);
+			} catch (ApiSetInvalidName&) {}
+		}
 
 		// convert to lowercase
-		std::transform(case_insensitive_name.begin(), case_insensitive_name.end(), case_insensitive_name.begin(), std::tolower);
+		std::transform(search_name.begin(), search_name.end(), search_name.begin(), std::tolower);
 
 		// find the module
-		if (const auto it{ this->m_modules.find(case_insensitive_name) }; it != this->m_modules.end())
+		if (const auto it{ this->m_modules.find(search_name) }; it != this->m_modules.end())
 			return &it->second;
 		
 		// module might not be loaded yet (defer loading option)
 		if (this->m_options.defer_module_loading) {
-			if (const auto it{ this->m_module_addresses.find(case_insensitive_name) }; it != this->m_module_addresses.end())
+			if (const auto it{ this->m_module_addresses.find(search_name) }; it != this->m_module_addresses.end())
 				return &(this->m_modules[it->first] = LoadedModule{ *this, it->second });
 		}
 
@@ -193,6 +198,69 @@ namespace mango {
 			return 0;
 
 		return exp->address;
+	}
+
+	// api name -> dll name
+	std::string Process::resolve_apiset(const std::string_view name) const {
+		// my implementation of https://lucasg.github.io/2017/10/15/Api-set-resolution/
+
+		// trim everything after the last "-" and convert to lowercase
+		std::wstring search_name{};
+		if (const auto index(name.find_last_of('-')); index != -1) {
+			std::transform(std::begin(name), std::begin(name) + 
+				index, std::back_inserter(search_name), std::tolower);
+		}
+
+		// name must start with either "api-" or "ext-"
+		if (name.size() < 4 || 
+			(*reinterpret_cast<const uint32_t*>(name.data()) != 0x2D697061 && 
+			 *reinterpret_cast<const uint32_t*>(name.data()) != 0x2D747865)) {
+			throw ApiSetInvalidName(enc_str("Name = "), '"', name, '"');
+		}
+
+		// api set map addr is stored in the PEB
+		const auto api_set_map_addr(this->is_64bit() ? 
+			uintptr_t(this->get_peb64().ApiSetMap) : 
+			uintptr_t(this->get_peb32().ApiSetMap));
+
+		const auto api_set_map(this->read<API_SET_NAMESPACE>(api_set_map_addr));
+
+		// read every entry at once for optimization
+		const auto entries(std::make_unique<API_SET_NAMESPACE_ENTRY[]>(api_set_map.Count));
+		this->read(api_set_map_addr + api_set_map.EntryOffset, entries.get(), api_set_map.Count * sizeof(API_SET_NAMESPACE_ENTRY));
+
+		// go through each entry
+		for (size_t i(0); i < api_set_map.Count; ++i) {
+			const auto& entry(entries[i]);
+
+			// no values, pointless to check
+			if (entry.ValueCount <= 0)
+				continue;
+
+			// read the name
+			// TODO: somehow reduce read calls here?
+			std::wstring name(entry.NameLength / 2, L' ');
+			this->read(api_set_map_addr + entry.NameOffset, name.data(), entry.NameLength);
+
+			// NOTE:
+			// im assumming here that all name entries are always in lowercase...
+			// this could break if this stops being the case later on
+
+			// is this what we're looking for?
+			if (name.compare(0, search_name.size(), search_name) == 0) {
+				const auto value(this->read<API_SET_VALUE_ENTRY>(api_set_map_addr + entry.ValueOffset));
+				
+				// read the value name
+				std::wstring resolved_name(value.ValueLength / 2, L' ');
+				this->read(api_set_map_addr + value.ValueOffset, resolved_name.data(), value.ValueLength);
+
+				// TODO: should probably change everything to be using wstrings eventually...
+				return wstr_to_str(resolved_name);
+			}
+		}
+
+		// rip
+		throw FailedToResolveApiSetName(enc_str("Name = "), '"', name, '"');
 	}
 
 	// peb structures
@@ -352,10 +420,14 @@ namespace mango {
 			if (const auto index{ name.find_last_of('\\') }; index != std::string::npos)
 				name.erase(name.begin(), name.begin() + index + 1);
 
+			// if it's an apiset name
+			try {
+				name = this->resolve_apiset(name);
+			} catch (ApiSetInvalidName&) {}
+
 			// change to lowercase
 			std::transform(name.begin(), name.end(), name.begin(), std::tolower);
 
-			//logger.info(name, ":0x", std::hex, std::uppercase, base);
 			this->m_module_addresses[name] = uintptr_t(base);
 		} };
 
