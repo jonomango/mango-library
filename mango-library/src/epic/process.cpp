@@ -212,9 +212,9 @@ namespace mango {
 		}
 
 		// name must start with either "api-" or "ext-"
-		if (name.size() < 4 || 
-			(*reinterpret_cast<const uint32_t*>(name.data()) != 0x2D697061 && 
-			 *reinterpret_cast<const uint32_t*>(name.data()) != 0x2D747865)) {
+		if (search_name.size() < 4 ||
+			(*reinterpret_cast<const uint64_t*>(search_name.data()) != 0x2D006900700061 &&
+			 *reinterpret_cast<const uint64_t*>(search_name.data()) != 0x2D007400780065)) {
 			throw ApiSetInvalidName(enc_str("Name = "), '"', name, '"');
 		}
 

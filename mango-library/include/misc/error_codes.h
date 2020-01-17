@@ -54,6 +54,7 @@ namespace mango {
 	mango_create_error(InvalidFileSize, "Invalid file size.");
 	mango_create_error(InvalidPEHeader, "Invalid PE header.");
 	mango_create_error(InvalidVtableSize, "Invalid VTable size, caused when VTable size is 0.");
+	mango_create_error(InvalidConsoleHandle, "Failed to get console handle.");
 
 	mango_create_error(FailedToReadMemory, "Failed to read process memory.");
 	mango_create_error(FailedToWriteMemory, "Failed to write to process memory.");

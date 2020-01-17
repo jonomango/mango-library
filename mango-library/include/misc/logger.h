@@ -1,44 +1,77 @@
 #pragma once
 
 #include <ostream>
-#include <iostream>
 #include <sstream>
+#include <array>
 
 
 namespace mango {
+	enum class LogType {
+		info,
+		success,
+		warning,
+		error
+	};
+
 	// the data is passed in the std::stringstream
 	using LoggingChannel = void(*)(std::ostringstream&&);
 
+	// union magic
+	union LoggingChannels {
+		LoggingChannel channels[1];
+		struct {
+			LoggingChannel info,
+				success,
+				warning,
+				error;
+		};
+	};
+
+	// basic colored console logging
+	LoggingChannels basic_colored_logging();
+
+	// for printing to an ostream
+	// NOTE: using these logging channels when the stream object's lifetime
+	//       is over will crash the program, make sure to set new logging channels
+	//       once the stream dies
+	LoggingChannels basic_ostream_logging(std::ostream& stream);
+
 	// logging class for debugging and stuff (can be used to output to console or a file or whatever)
+	// NOTE: this is implementated through stringstreams so this is NOT optimized
+	// TODO: add support for multiple concurrent logging channels
 	class Logger {
 	public:
 		// set logging channels (handlers)
-		void set_info_channel(const LoggingChannel& channel) {
-			this->m_info_channel = channel;
+		// pass nullptr to ignore logs for that specific channel
+		void set_channel(const LogType type, const LoggingChannel channel) noexcept {
+			this->m_channels.channels[size_t(type)] = channel;
 		}
-		void set_success_channel(const LoggingChannel& channel) {
-			this->m_success_channel = channel;
-		}
-		void set_error_channel(const LoggingChannel& channel) {
-			this->m_error_channel = channel;
+
+		// set all logging channels at once
+		void set_channels(const LoggingChannels& channels) noexcept {
+			this->m_channels = channels;
 		}
 
 		// info
 		template <typename ...Args>
-		void info(Args&& ...args) { this->dispatch(this->m_info_channel, std::forward<Args>(args)...); }
+		void info(Args&& ...args) { this->dispatch(LogType::info, std::forward<Args>(args)...); }
 
 		// success
 		template <typename ...Args>
-		void success(Args&& ...args) { this->dispatch(this->m_success_channel, std::forward<Args>(args)...); }
+		void success(Args&& ...args) { this->dispatch(LogType::success, std::forward<Args>(args)...); }
+
+		// warning
+		template <typename ...Args>
+		void warning(Args&& ...args) { this->dispatch(LogType::warning, std::forward<Args>(args)...); }
 
 		// error
 		template <typename ...Args>
-		void error(Args&& ...args) { this->dispatch(this->m_error_channel, std::forward<Args>(args)...); }
+		void error(Args&& ...args) { this->dispatch(LogType::error, std::forward<Args>(args)...); }
 
-	private:
 		// dispatch the contents to the appropriate channel
 		template <typename ...Args>
-		void dispatch(const LoggingChannel& channel, Args&& ...args) {
+		void dispatch(const LogType type, Args&& ...args) {
+			const auto channel(this->m_channels.channels[size_t(type)]);
 			if (!channel)
 				return;
 
@@ -47,10 +80,7 @@ namespace mango {
 			(ss << ... << args);
 			channel(std::move(ss));
 		}
-
 	private:
-		LoggingChannel m_info_channel = nullptr, 
-			m_success_channel = nullptr,
-			m_error_channel = nullptr;
+		LoggingChannels m_channels{};
 	} inline logger;
 } // namespace mango

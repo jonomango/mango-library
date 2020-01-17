@@ -29,60 +29,22 @@
 
 // TODO:
 // std::source_location in exceptions when c++20 comes out
-// improve manual mapper (apischema + tls callbacks)
-
-
-// setup logger channels
-void setup_logger(std::ostream& stream = std::cout) {
-	static const auto display_info = [&](const uint16_t attribute, const std::string_view prefix, std::ostringstream&& ss) {
-		static const auto handle = GetStdHandle(STD_OUTPUT_HANDLE);
-
-		stream << '[';
-		SetConsoleTextAttribute(handle, attribute);
-		stream << prefix;
-		SetConsoleTextAttribute(handle, FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED);
-		stream << "] " << ss.str() << std::endl;
-	};
-
-	// info channel
-	mango::logger.set_info_channel([](std::ostringstream&& ss) {
-		display_info(FOREGROUND_BLUE | FOREGROUND_GREEN, "info", std::move(ss));
-	});
-
-	// success channel
-	mango::logger.set_success_channel([](std::ostringstream&& ss) {
-		display_info(FOREGROUND_GREEN, "success", std::move(ss));
-	});
-
-	// error channel
-	mango::logger.set_error_channel([](std::ostringstream&& ss) {
-		display_info(FOREGROUND_RED, "error", std::move(ss));
-	});
-
-	mango::logger.success("Logging channels initialized.");
-}
-
-
+// improve manual mapper (tls callbacks)
+// TODO: ApiSet in manual mapper and move more stuff out of the injected thread
 
 int main() {
-	setup_logger();
+	mango::logger.set_channels(mango::basic_colored_logging());
 
-	run_unit_tests();
+	//run_unit_tests();
+
+	mango::logger.info("info text here.");
+	mango::logger.success("success text here.");
+	mango::logger.warning("warning text here.");
+	mango::logger.error("error text here.");
 
 	try {
 		using namespace mango;
 
-		const auto process(Process::current({ .defer_module_loading = false }));
-
-		for (const auto& [name, entries] : process.get_modules()) {
-			logger.info(name);
-		}
-
-		logger.info(process.resolve_apiset("api-ms-win-crt-string-l1-1-0.dll"));
-		logger.info(std::hex, process.get_proc_addr("api-ms-win-crt-string-l1-1-0.dll", "tolower"));
-		logger.info(std::hex, process.get_proc_addr("ucrtbase.dll", "tolower"));
-
-		// TODO: ApiSet in manual mapper to move more stuff out of the injected thread
 	} catch (std::exception& e) {
 		mango::logger.error(e.what());
 	}
