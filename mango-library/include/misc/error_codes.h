@@ -42,6 +42,8 @@ namespace mango {
 
 	mango_create_error(CantSetup64From32, "Cant setup a 64bit process from a 32bit process.");
 
+	mango_create_error(NoAvailableDebugRegisters, "All debug registers are currently used.");
+
 	mango_create_error(ApiSetInvalidName, "Provided ApiSet name doesn't begin with \"api-\" or \"ext-\".");
 	mango_create_error(FailedToResolveApiSetName, "Failed to resolve ApiSet name.");
 
@@ -56,11 +58,6 @@ namespace mango {
 	mango_create_error(InvalidVtableSize, "Invalid VTable size, caused when VTable size is 0.");
 	mango_create_error(InvalidConsoleHandle, "Failed to get console handle.");
 
-	mango_create_error(FailedToReadMemory, "Failed to read process memory.");
-	mango_create_error(FailedToWriteMemory, "Failed to write to process memory.");
-	mango_create_error(FailedToAllocateVirtualMemory, "Failed to allocate virtual memory.");
-	mango_create_error(FailedToFreeVirtualMemory, "Failed to free virtual memory.");
-	mango_create_error(FailedToSetMemoryProtection, "Failed to set memory pages' protection.");
 	mango_create_error(FailedToGetFunctionAddress, "Failed to get function address.");
 	mango_create_error(FailedToCreateRemoteThread, "Failed to create a thread in the process.");
 	mango_create_error(FailedToEnumModules, "Failed to enum process modules.");
@@ -77,6 +74,14 @@ namespace mango {
 	mango_create_error(FailedToSuspendProcess, "Failed to suspend the process.");
 	mango_create_error(FailedToResumeProcess, "Failed to resume the process.");
 	mango_create_error(FailedToEnumProcesses, "Failed to enumerate all processes.");
+	mango_create_error(FailedToGetThreadContext, "Failed to get thread context.");
+	mango_create_error(FailedToSetThreadContext, "Failed to set thread context.");
+
+	mango_create_error(FailedToReadMemory, "Failed to read process memory.");
+	mango_create_error(FailedToWriteMemory, "Failed to write to process memory.");
+	mango_create_error(FailedToAllocateVirtualMemory, "Failed to allocate virtual memory.");
+	mango_create_error(FailedToFreeVirtualMemory, "Failed to free virtual memory.");
+	mango_create_error(FailedToSetMemoryProtection, "Failed to set memory pages' protection.");
 
 	mango_create_error(FailedToQueryProcessArchitecture, "Failed to query process architecture type (x64 or x86).");
 	mango_create_error(FailedToQueryProcessName, "Failed to query process name.");

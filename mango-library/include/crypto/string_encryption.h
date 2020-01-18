@@ -13,7 +13,7 @@
 // kinda sucks that we have to use a macro but whatever
 #define enc_str(str)\
 (([]() {\
-	constexpr mango::_EncryptedString<sizeof(str)> _encrypted_str(str);\
+	constexpr mango::EncryptedString<sizeof(str)> _encrypted_str(str);\
 	return _encrypted_str();\
 })())\
 
@@ -21,10 +21,10 @@
 namespace mango { 
 	// compile time block based string encryption
 	template <size_t Size>
-	class _EncryptedString {
+	class EncryptedString {
 	public:
 		// encrypt the string in the constructor, at compile time (hopefully)
-		explicit constexpr _EncryptedString(const char(&str)[Size]) : m_key(compile_time_key(Size - 1)), m_data({}) {
+		explicit constexpr EncryptedString(const char(&str)[Size]) : m_key(compile_time_key(Size - 1)), m_data({}) {
 			// pack the string into 64-bit blocks
 			const auto size = Size - 1;
 			for_constexpr<0, Size - 1, 1>([&](const size_t i) {

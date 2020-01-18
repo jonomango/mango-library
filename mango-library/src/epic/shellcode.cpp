@@ -34,6 +34,8 @@ namespace mango {
 		const ScopeGuard _guard{ &Shellcode::free, std::ref(process), address };
 
 		this->write(process, address);
+		process.set_mem_prot(address, this->m_data.size(), PAGE_EXECUTE_READ);
+
 		process.create_remote_thread(address, argument);
 	}
 
