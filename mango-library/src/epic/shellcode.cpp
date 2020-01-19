@@ -15,6 +15,7 @@ namespace mango {
 	// copy the shellcode to the address
 	void Shellcode::write(const Process& process, const uintptr_t address) const {
 		process.write(address, this->m_data.data(), this->m_data.size());
+		process.set_mem_prot(address, this->m_data.size(), PAGE_EXECUTE_READ); // no longer need to be able to write
 	}
 
 	// free shellcode that was previously allocated with Shellcode::allocate()
@@ -34,7 +35,6 @@ namespace mango {
 		const ScopeGuard _guard{ &Shellcode::free, std::ref(process), address };
 
 		this->write(process, address);
-		process.set_mem_prot(address, this->m_data.size(), PAGE_EXECUTE_READ);
 
 		process.create_remote_thread(address, argument);
 	}

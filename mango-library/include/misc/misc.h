@@ -11,6 +11,9 @@ namespace mango {
 	template <auto Value>
 	static constexpr inline auto compile_time = Value;
 
+	template <bool is64bit>
+	using PtrType = std::conditional_t<is64bit, uint64_t, uint32_t>;
+
 	namespace impl {
 		// helper function for for_constexpr
 		template <typename Callable, size_t... Is>

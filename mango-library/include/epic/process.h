@@ -120,6 +120,8 @@ namespace mango {
 		// peb structures
 		PEB_M32 get_peb32() const;
 		PEB_M64 get_peb64() const;
+		uintptr_t get_peb32_addr() const;
+		uintptr_t get_peb64_addr() const;
 
 		// read from a memory address
 		void read(const void* const address, void* const buffer, const size_t size) const;

@@ -11,7 +11,7 @@ namespace mango {
 	class Wow64SyscallHook {
 	public:
 		// return false to not call the original syscall
-		using Callback = bool(*)(const uint32_t syscall_index, uint32_t* const arguments, volatile uint32_t return_value);
+		using Callback = bool(__cdecl*)(const uint32_t syscall_index, uint32_t* const arguments, volatile uint32_t return_value);
 
 		struct SetupOptions {
 			// whether we should call release in the destructor or not

@@ -117,7 +117,7 @@ namespace mango {
 	template <typename Ptr>
 	struct _PEB_INTERNAL {
 		union {
-			Ptr _alignment;
+			Ptr _alignment1;
 			struct {
 				uint8_t InheritedAddressSpace;
 				uint8_t ReadImageFileExecOptions;
@@ -131,11 +131,36 @@ namespace mango {
 		Ptr Ldr;
 
 	private:
-		Ptr	    _padding1[0x8];
-		uint8_t _padding2[0x8];
+		Ptr	    _padding1[0x6];
+
+	public:
+		union {
+			Ptr _alignment2;
+			unsigned long CrossProcessFlags;
+			struct {
+				unsigned long ProcessInJob : 1,
+					ProcessInitializing : 1,
+					ProcessUsingVEH : 1,
+					ProcessUsingVCH : 1,
+					ProcessUsingFTH : 1;
+			};
+		};
+
+	private:
+		Ptr _padding2[0x1];
+		uint8_t _padding3[0x8];
 
 	public:
 		Ptr ApiSetMap;
+
+		union {
+			Ptr _alignment3;
+			unsigned long TlsExpansionCounter;
+		};
+
+	public:
+		Ptr TlsBitmap;
+		unsigned long TlsBitmapBits[2];
 	};
 
 	using PEB_M32 = _PEB_INTERNAL<uint32_t>;

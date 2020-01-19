@@ -33,7 +33,7 @@
     <ClInclude Include="include\epic\pattern_scanner.h" />
     <ClInclude Include="include\epic\process.h" />
     <ClInclude Include="include\epic\syscalls.h" />
-    <ClInclude Include="include\epic\syscall_hook.h" />
+    <ClInclude Include="include\epic\wow64_syscall_hook.h" />
     <ClInclude Include="include\epic\vmt_hook.h" />
     <ClInclude Include="include\epic\loaded_module.h" />
     <ClInclude Include="include\epic\shellcode.h" />
@@ -55,7 +55,7 @@
     <ClCompile Include="src\epic\iat_hook.cpp" />
     <ClCompile Include="src\epic\pattern_scanner.cpp" />
     <ClCompile Include="src\epic\syscalls.cpp" />
-    <ClCompile Include="src\epic\syscall_hook.cpp" />
+    <ClCompile Include="src\epic\wow64_syscall_hook.cpp" />
     <ClCompile Include="src\epic\vmt_hook.cpp" />
     <ClCompile Include="src\epic\loader.cpp" />
     <ClCompile Include="src\epic\loaded_module.cpp" />

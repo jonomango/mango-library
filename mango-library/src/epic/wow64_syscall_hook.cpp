@@ -1,4 +1,4 @@
-#include "../../include/epic/syscall_hook.h"
+#include "../../include/epic/wow64_syscall_hook.h"
 
 #include "../../include/epic/process.h"
 #include "../../include/misc/error_codes.h"

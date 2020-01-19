@@ -3,7 +3,7 @@
 #include <epic/process.h>
 #include <epic/vmt_hook.h>
 #include <epic/iat_hook.h>
-#include <epic/syscall_hook.h>
+#include <epic/wow64_syscall_hook.h>
 #include <epic/shellcode.h>
 #include <epic/loader.h>
 #include <epic/loaded_module.h>

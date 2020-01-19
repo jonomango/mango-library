@@ -5,7 +5,7 @@
 #include <epic/vmt_hook.h>
 #include <epic/iat_hook.h>
 #include <epic/syscalls.h>
-#include <epic/syscall_hook.h>
+#include <epic/wow64_syscall_hook.h>
 #include <epic/unused_memory.h>
 #include <epic/windows_defs.h>
 #include <epic/driver.h>
@@ -19,6 +19,7 @@
 #include <misc/math.h>
 #include <misc/fnv_hash.h>
 #include <misc/scope_guard.h>
+#include <epic/shellcode_wrappers.h>
 #include <crypto/string_encryption.h>
 #include <epic/hardware_breakpoint.h>
 
@@ -29,68 +30,14 @@
 #include <fstream>
 #include <bitset>
 
+#pragma comment(lib, "kernel32.lib")
 
 
-void register_hwbp(const mango::Process& process, const HANDLE thread, const uintptr_t address, const size_t size) {
-	uintptr_t size_mask(0);
-	switch (size) {
-	case 1: size_mask = 0b00; break;
-	case 2: size_mask = 0b01; break;
-	case 4: size_mask = 0b11; break;
-	case 8: size_mask = 0b10; break;
-	default: return;
-	}
-
-	// suspend current thread to safely get the context
-	SuspendThread(thread);
-	const mango::ScopeGuard _guard(&ResumeThread, thread);
-
-	// we only care about debug registers
-	CONTEXT context{ .ContextFlags = CONTEXT_DEBUG_REGISTERS };
-	GetThreadContext(thread, &context);
-
-	for (size_t i(0); i < 4; ++i) {
-		// https://www.codeproject.com/Articles/28071/Toggle-hardware-data-read-execute-breakpoints-prog
-		const auto local_enable_mask(uintptr_t(1) << (i * 2));
-
-		// skip debug registers that are already being used
-		if (context.Dr7 & local_enable_mask)
-			continue;
-
-		mango::logger.info("Using debug register: ", i);
-
-		// enable locally
-		context.Dr7 |= local_enable_mask;
-
-		// hardcoded to break on execution but other options are break on read/write
-		static constexpr uintptr_t type_mask(0b00);
-		
-		// specify when the breakpoint should trigger
-		context.Dr7 &= ~(uintptr_t(0b11) << (16 + i * 4)); // clear value
-		context.Dr7 |= (type_mask) << (16 + i * 4);	       // set value
-		
-		// specify the breakpoint size
-		context.Dr7 &= ~(uintptr_t(0b11) << (18 + i * 4)); // clear value
-		context.Dr7 |= (size_mask) << (18 + i * 4);        // set value
-
-		// break on our address
-		(&context.Dr0)[i] = address;
-
-		// set our new, modified, thread context
-		SetThreadContext(thread, &context);
-
-		return;
-	}
-
-	mango::logger.error("No debug registers are free :(");
-}
 
 // TODO:
 // std::source_location in exceptions when c++20 comes out
 // improve manual mapper (tls callbacks)
 // TODO: ApiSet in manual mapper and move more stuff out of the injected thread
-
-int cheese_frog = -1;
 
 DWORD WINAPI new_thread(void*) {
 	while (true) {
@@ -102,21 +49,58 @@ DWORD WINAPI new_thread(void*) {
 	return 1;
 }
 
-uintptr_t hook_addr = 0;
+LONG WINAPI veh(const PEXCEPTION_POINTERS info) {
+	return EXCEPTION_CONTINUE_SEARCH;
+}
 
-LONG WINAPI handler(const PEXCEPTION_POINTERS info) {
-	if (info->ExceptionRecord->ExceptionCode == EXCEPTION_SINGLE_STEP) {
-		if (info->ContextRecord->Eip == hook_addr) {
-			mango::logger.success("Exception hit! Address: 0x", std::hex, info->ContextRecord->Eip);
-			info->ContextRecord->Dr7 = 0; // clear debug register to prevent infinite loop
-			info->ContextRecord->EFlags |= 0x100; // set step flag
-		} else {
-			mango::hwbp::enable(*info->ContextRecord, hook_addr);
-			info->ContextRecord->EFlags &= ~0x100; // clear step flag
-		}
-	}
+void __fastcall callback(const PEXCEPTION_POINTERS info) {
+	mango::logger.info("Hook called! Address: 0x", std::hex, info->ContextRecord->Rip);
+}
 
-	return EXCEPTION_CONTINUE_EXECUTION;
+template <typename Ptr>
+struct _RTL_VECTORED_EXCEPTION_HANDLER {
+	Ptr Flink;
+	Ptr Blink;
+	ULONG Refs;
+	Ptr VectoredHandler;
+};
+
+using RTL_VECTORED_EXCEPTION_HANDLER_M32 = _RTL_VECTORED_EXCEPTION_HANDLER<uint32_t>;
+using RTL_VECTORED_EXCEPTION_HANDLER_M64 = _RTL_VECTORED_EXCEPTION_HANDLER<uint64_t>;
+
+template <bool is64bit>
+void insert_vectored_exception_handler(const mango::Process& process, const uintptr_t handler) {
+	// https://docs.microsoft.com/en-us/archive/msdn-magazine/2001/september/under-the-hood-new-vectored-exception-handling-in-windows-xp
+
+	using ListNode = _RTL_VECTORED_EXCEPTION_HANDLER<mango::PtrType<is64bit>>;
+	ListNode* const veh_linked_list_head(reinterpret_cast<ListNode*>(process.get_module_addr("ntdll.dll") + 0x17A3C8));
+
+	const auto encrypt_ptr = [&](const uintptr_t ptr) {
+		using RtlEncodeRemotePointerFn = decltype(&EncodeRemotePointer);
+		const auto func = RtlEncodeRemotePointerFn(process.get_proc_addr("ntdll.dll", "RtlEncodeRemotePointer"));
+
+		PVOID decrypted = PVOID(ptr), encrypted = 0;
+		func(process.get_handle(), decrypted, &encrypted);
+		return uintptr_t(encrypted);
+	};
+
+	auto new_entry = new ListNode{
+		.Flink = veh_linked_list_head->Flink,
+		.Blink = uintptr_t(veh_linked_list_head),
+		.Refs = 1,
+		.VectoredHandler = encrypt_ptr(handler)
+	};
+	
+	mango::logger.info(std::hex, veh_linked_list_head->Blink);
+	mango::logger.info(std::hex, veh_linked_list_head->Flink);
+
+	const auto CrossProcessFlags_addr = process.get_peb64_addr() + offsetof(mango::PEB_M64, CrossProcessFlags);
+	process.write<uint8_t>(CrossProcessFlags_addr, process.read<uint8_t>(CrossProcessFlags_addr) | (1 << 2));
+
+	// FUCKING HELL, totally forgot about ntdll.dll and the fucking .mrdata section
+	// guess its time for more shellcode :/
+	reinterpret_cast<ListNode*>(veh_linked_list_head->Flink)->Blink = uintptr_t(new_entry);
+	veh_linked_list_head->Flink = uintptr_t(new_entry);
 }
 
 int main() {
@@ -128,16 +112,42 @@ int main() {
 		using namespace mango;
 
 		const auto process(Process::current());
+
+		const auto veh_list_head((RTL_VECTORED_EXCEPTION_HANDLER_M64*)(process.get_module_addr("ntdll.dll") + 0x17A3C8));
 		
-		hook_addr = uintptr_t(&new_thread) + 0x37;// 0x40;
-		mango::logger.info("Setting HWBP at address: 0x", std::hex, hook_addr);
+		mango::logger.info(process.get_peb64().ProcessUsingVEH);
+
+		//AddVectoredExceptionHandler(TRUE, (PVECTORED_EXCEPTION_HANDLER)veh);
+		insert_vectored_exception_handler<true>(process, uintptr_t(veh));
+
+		mango::logger.info(process.get_peb64().ProcessUsingVEH);
+
+		using RtlDecodeRemotePointerFn = decltype(&DecodeRemotePointer);
+		const auto RtlDecodeRemotePointer = RtlDecodeRemotePointerFn(process.get_proc_addr("ntdll.dll", "RtlDecodeRemotePointer"));
+
+		auto entry = veh_list_head;
+		if (entry) {
+			do {
+				PVOID Ptr = PVOID(entry->VectoredHandler), DecodedPtr = nullptr;
+				RtlDecodeRemotePointer(process.get_handle(), Ptr, &DecodedPtr);
+				mango::logger.info("0x", DecodedPtr);
+
+				entry = (RTL_VECTORED_EXCEPTION_HANDLER_M64*)entry->Flink;
+			} while (entry != veh_list_head);
+		}
 		
-		// TODO: externally add veh
-		// TODO: function for removing hwbp (searching through dr7 for active registers, then checking if any of those registers match the provided address)
-		AddVectoredExceptionHandler(TRUE, &handler);
-		const auto thread(CreateThread(nullptr, 0, new_thread, nullptr, 0, nullptr));
-		
-		hwbp::enable(process, thread, hook_addr);
+		//const auto hook_address(uintptr_t(&new_thread) + 0x40);// 0x40;
+		//mango::logger.info("Setting HWBP at address: 0x", std::hex, hook_address);
+		//
+		//const Shellcode shellcode(shw::debug_register_veh<true>(hook_address, uintptr_t(callback)));
+		//const auto shellcode_addr(shellcode.allocate_and_write(process));
+		//
+		//// TODO: externally add veh
+		//AddVectoredExceptionHandler(TRUE, (PVECTORED_EXCEPTION_HANDLER)shellcode_addr);
+		//const auto thread(CreateThread(nullptr, 0, new_thread, nullptr, 0, nullptr));
+		//
+		//Sleep(50);
+		//hwbp::enable(process, thread, hook_address);
 	} catch (std::exception& e) {
 		mango::logger.error(e.what());
 	}

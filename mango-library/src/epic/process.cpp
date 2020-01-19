@@ -265,12 +265,18 @@ namespace mango {
 
 	// peb structures
 	PEB_M32 Process::get_peb32() const {
-		if (this->is_64bit())
-			throw NotA32BitProcess{};
-		return this->read<PEB_M32>(this->m_peb64_address + 0x1000);
+		return this->read<PEB_M32>(this->get_peb32_addr());
 	}
 	PEB_M64 Process::get_peb64() const {
-		return this->read<PEB_M64>(this->m_peb64_address);
+		return this->read<PEB_M64>(this->get_peb64_addr());
+	}
+	uintptr_t Process::get_peb32_addr() const {
+		if (this->is_64bit())
+			throw NotA32BitProcess{};
+		return this->m_peb64_address + 0x1000;
+	}
+	uintptr_t Process::get_peb64_addr() const {
+		return this->m_peb64_address;
 	}
 
 	// read from a memory address
