@@ -149,6 +149,7 @@ namespace mango {
 		}
 
 		// allocate virtual memory in the process (wrapper for VirtualAllocEx)
+		// NOTE: prefer using a ProcessMemoryAllocator instead of this directly
 		void* alloc_virt_mem(const size_t size,
 			const uint32_t protection = PAGE_READWRITE,
 			const uint32_t type = MEM_COMMIT | MEM_RESERVE) const;

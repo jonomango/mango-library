@@ -6,6 +6,7 @@
 #include <iostream>
 #include <assert.h>
 
+#include "../misc/memory_allocator.h"
 #include "../misc/misc.h"
 #include "../misc/math.h"
 
@@ -32,7 +33,12 @@ namespace mango {
 
 		// allocate() then write()
 		uintptr_t allocate_and_write(const Process& process) const {
-			const auto address = this->allocate(process);
+			const auto address(this->allocate(process));
+			this->write(process, address);
+			return address;
+		}
+		uintptr_t allocate_and_write(const Process& process, MemoryAllocator& allocator) const {
+			const auto address(allocator.allocate(this->m_data.size()));
 			this->write(process, address);
 			return address;
 		}
@@ -46,6 +52,9 @@ namespace mango {
 		// Process::create_remote_thread()
 		// Shellcode::free()
 		void execute(const Process& process, const uintptr_t argument = 0) const;
+
+		// same thing as above but uses allocator.allocate() and doesn't call Shellcode::free()
+		void execute(const Process& process, MemoryAllocator& allocator, const uintptr_t argument = 0) const;
 
 		// reset
 		void clear() noexcept { this->m_data.clear(); }

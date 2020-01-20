@@ -6,6 +6,7 @@
 #include "../../include/misc/logger.h"
 #include "../../include/misc/scope_guard.h"
 #include "../../include/misc/error_codes.h"
+#include "../../include/misc/memory_allocator.h"
 #include "../../include/crypto/string_encryption.h"
 
 #include <filesystem>
@@ -317,24 +318,22 @@ namespace mango {
 		if (!func_addr)
 			throw FailedToGetFunctionAddress{};
 
+		ProcessMemoryAllocator allocator(process);
+		const ScopeGuard _guard(&ProcessMemoryAllocator::release, std::ref(allocator));
+
 		// this will be where the dll path is stored in the process
-		const auto str_address{ uintptr_t(process.alloc_virt_mem(dll_path.size() + 1)) };
-		const ScopeGuard _guardone{ [&]() { process.free_virt_mem(str_address); } };
+		const auto str_address(allocator.allocate(dll_path.size() + 1));
 
 		// for the return value of LoadLibraryA
-		const auto ret_address{ uintptr_t(process.alloc_virt_mem(process.get_ptr_size())) };
-		const ScopeGuard _guardtwo{ [&]() { process.free_virt_mem(ret_address); } };
+		const auto ret_address(allocator.allocate(process.get_ptr_size()));
 
 		// write the dll name
-		const std::string null_terminated_path{ dll_path };
+		const std::string null_terminated_path(dll_path);
 		process.write(str_address, null_terminated_path.c_str(), null_terminated_path.size() + 1);
-
-		// HMODULE
-		uintptr_t ret_value{ 0 };
 
 		// this shellcode basically just calls LoadLibraryA()
 		if (process.is_64bit()) {
-			Shellcode{
+			Shellcode(
 				"\x48\x83\xEC\x20", // sub rsp, 0x20
 				"\x48\xB9", str_address, // movabs rcx, str_address
 				"\x48\xB8", func_addr, // movabs rax, func_addr
@@ -343,25 +342,20 @@ namespace mango {
 				"\x48\x83\xC4\x20", // add rsp, 0x20
 				"\x31\xC0", // xor eax, eax
 				shw::ret()
-			}.execute(process);
+			).execute(process, allocator);
 
-			// the HMODULE returned by LoadLibrary
-			ret_value = uintptr_t(process.read<uint64_t>(ret_address));
+			return uintptr_t(process.read<uint64_t>(ret_address));
 		} else {
-			Shellcode{
+			Shellcode(
 				"\x68", uint32_t(str_address), // push str_address
 				"\xB8", uint32_t(func_addr), // mov eax, func_addr
 				"\xFF\xD0", // call eax
 				"\xA3", uint32_t(ret_address), // mov [ret_address], eax
 				shw::ret()
-			}.execute(process);
+			).execute(process, allocator);
 
-			// the HMODULE returned by LoadLibrary
-			ret_value = process.read<uint32_t>(ret_address);
+			return uintptr_t(process.read<uint32_t>(ret_address));
 		}
-
-		// truncated if called from a 64bit program to a 32bit program
-		return ret_value;
 	}
 
 	// manual map a dll into another process

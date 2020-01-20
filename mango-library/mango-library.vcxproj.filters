@@ -60,6 +60,9 @@
     <ClCompile Include="src\epic\wow64_syscall_hook.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\misc\memory_allocator.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\epic\shellcode.h">
@@ -144,6 +147,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\epic\wow64_syscall_hook.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\misc\memory_allocator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

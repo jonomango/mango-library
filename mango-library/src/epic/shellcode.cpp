@@ -15,7 +15,6 @@ namespace mango {
 	// copy the shellcode to the address
 	void Shellcode::write(const Process& process, const uintptr_t address) const {
 		process.write(address, this->m_data.data(), this->m_data.size());
-		process.set_mem_prot(address, this->m_data.size(), PAGE_EXECUTE_READ); // no longer need to be able to write
 	}
 
 	// free shellcode that was previously allocated with Shellcode::allocate()
@@ -29,14 +28,17 @@ namespace mango {
 	// Process::create_remote_thread()
 	// Shellcode::free()
 	void Shellcode::execute(const Process& process, const uintptr_t argument) const {
-		const auto address{ this->allocate(process) };
+		const auto address(this->allocate_and_write(process));
+		const ScopeGuard _guard(&Shellcode::free, std::ref(process), address);
 
-		// free the memory when we're done
-		const ScopeGuard _guard{ &Shellcode::free, std::ref(process), address };
-
-		this->write(process, address);
-
+		// start running the codenz
 		process.create_remote_thread(address, argument);
+	}
+
+	// same thing as above but uses allocator.allocate() and doesn't call Shellcode::free()
+	void Shellcode::execute(const Process& process, MemoryAllocator& allocator, const uintptr_t argument) const {
+		// start running the codenz
+		process.create_remote_thread(this->allocate_and_write(process, allocator), argument);
 	}
 
 	// push raw data, used by push()
