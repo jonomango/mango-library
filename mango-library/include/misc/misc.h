@@ -4,6 +4,7 @@
 #include <cstring>
 #include <string>
 #include <string_view>
+#include <algorithm>
 
 
 namespace mango {
@@ -33,6 +34,19 @@ namespace mango {
 
 	// wstring to string conversions
 	std::string wstr_to_str(const std::wstring_view str);
+
+	// whatever dude
+	template <typename T>
+	T tolower_t(const T c) {
+		return T(std::tolower(c));
+	}
+
+	// converts str to all lowercase
+	template <typename T>
+	void str_tolower(T&& str) {
+		std::transform(std::begin(std::forward<T>(str)), std::end(std::forward<T>(
+			str)), std::begin(std::forward<T>(str)), tolower_t<char>);
+	}
 
 	// seems pretty useless at first, but its needed for the automatic size deduction for strings with null chars (ex: shellcode)
 	class StringWrapper {

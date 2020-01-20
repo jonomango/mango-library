@@ -114,6 +114,8 @@ namespace mango {
 	using LDR_DATA_TABLE_ENTRY_M64 = _LDR_DATA_TABLE_ENTRY_INTERNAL<uint64_t>;
 
 	// http://terminus.rewolf.pl/terminus/structures/ntdll/_PEB_combined.html
+#pragma warning(push)
+#pragma warning(disable : 4201) // warning C4201: nonstandard extension used: nameless struct/union
 	template <typename Ptr>
 	struct _PEB_INTERNAL {
 		union {
@@ -162,6 +164,7 @@ namespace mango {
 		Ptr TlsBitmap;
 		unsigned long TlsBitmapBits[2];
 	};
+#pragma warning(pop)
 
 	using PEB_M32 = _PEB_INTERNAL<uint32_t>;
 	using PEB_M64 = _PEB_INTERNAL<uint64_t>;

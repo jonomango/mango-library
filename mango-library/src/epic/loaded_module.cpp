@@ -117,8 +117,7 @@ namespace mango {
 			process.read(address + iat_entry->Name, module_name, 256);
 			module_name[255] = '\0';
 
-			// change to lowercase
-			std::transform(std::begin(module_name), std::end(module_name), std::begin(module_name), std::tolower);
+			str_tolower(module_name);
 
 			// we fill this with entries
 			auto& imported_funcs{ loaded_module->m_imported_funcs[module_name] };

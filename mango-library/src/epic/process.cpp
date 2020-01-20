@@ -163,8 +163,7 @@ namespace mango {
 			} catch (ApiSetInvalidName&) {}
 		}
 
-		// convert to lowercase
-		std::transform(search_name.begin(), search_name.end(), search_name.begin(), std::tolower);
+		str_tolower(search_name);
 
 		// find the module
 		if (const auto it{ this->m_modules.find(search_name) }; it != this->m_modules.end())
@@ -208,7 +207,7 @@ namespace mango {
 		std::wstring search_name{};
 		if (const auto index(name.find_last_of('-')); index != -1) {
 			std::transform(std::begin(name), std::begin(name) + 
-				index, std::back_inserter(search_name), std::tolower);
+				index, std::back_inserter(search_name), tolower_t<wchar_t>);
 		}
 
 		// name must start with either "api-" or "ext-"
@@ -239,15 +238,15 @@ namespace mango {
 
 			// read the name
 			// TODO: somehow reduce read calls here?
-			std::wstring name(entry.NameLength / 2, L' ');
-			this->read(api_set_map_addr + entry.NameOffset, name.data(), entry.NameLength);
+			std::wstring entry_name(entry.NameLength / 2, L' ');
+			this->read(api_set_map_addr + entry.NameOffset, entry_name.data(), entry.NameLength);
 
 			// NOTE:
 			// im assumming here that all name entries are always in lowercase...
 			// this could break if this stops being the case later on
 
 			// is this what we're looking for?
-			if (name.compare(0, search_name.size(), search_name) == 0) {
+			if (entry_name.compare(0, search_name.size(), search_name) == 0) {
 				const auto value(this->read<API_SET_VALUE_ENTRY>(api_set_map_addr + entry.ValueOffset));
 				
 				// read the value name
@@ -431,9 +430,7 @@ namespace mango {
 				name = this->resolve_apiset(name);
 			} catch (ApiSetInvalidName&) {}
 
-			// change to lowercase
-			std::transform(name.begin(), name.end(), name.begin(), std::tolower);
-
+			str_tolower(name);
 			this->m_module_addresses[name] = uintptr_t(base);
 		} };
 
@@ -450,7 +447,7 @@ namespace mango {
 		if (const auto status{ mango::NtQueryInformationProcess(this->m_handle, ProcessBasicInformation, &info, sizeof(info), nullptr) }; !NT_SUCCESS(status))
 			throw FailedToQueryProcessInformation{ mango_format_ntstatus(status) };
 
-		if (sizeof(void*) == 8) { // host is a 64bit process
+		if constexpr (sizeof(void*) == 8) { // host is a 64bit process
 			return uintptr_t(info.PebBaseAddress);
 		} else /* host is a 32bit process */ {
 			return uintptr_t(info.PebBaseAddress) - 0x1000;
@@ -471,8 +468,10 @@ namespace mango {
 		this->m_is_64bit = this->query_is_64bit();
 
 		// access a 64bit program from a 32bit program
-		if (sizeof(void*) == 4 && this->m_is_64bit)
-			throw CantSetup64From32();
+		if constexpr (sizeof(void*) == 4) {
+			if (this->m_is_64bit)
+				throw CantSetup64From32();
+		}
 
 		this->m_process_name = this->query_name();
 		this->m_peb64_address = this->query_peb64_address();

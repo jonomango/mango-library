@@ -34,8 +34,8 @@ namespace mango {
 		// translate two chars into their byte representation
 		// i.e 'F' and 'F' turn into 0xFF
 		const auto parse_byte{ [](char c1, char c2) {
-			c1 = std::toupper(c1);
-			c2 = std::toupper(c2);
+			c1 = char(std::toupper(c1));
+			c2 = char(std::toupper(c2));
 
 			uint8_t b = 0;
 			if (c1 >= '0' && c1 <= '9')

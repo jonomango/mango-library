@@ -35,8 +35,7 @@ namespace mango {
 
 	// hook a function
 	uintptr_t IatHook::hook(std::string module_name, const std::string& func_name, const uintptr_t func) {
-		// change module name to lowercase
-		std::transform(module_name.begin(), module_name.end(), module_name.begin(), std::tolower);
+		str_tolower(module_name);
 
 		// make sure not hooked already
 		if (const auto& functions{ this->m_hooked_funcs.find(module_name) }; functions != this->m_hooked_funcs.end()) {
@@ -53,8 +52,7 @@ namespace mango {
 
 	// unhook
 	void IatHook::unhook(std::string module_name, const std::string& func_name) {
-		// change module name to lowercase
-		std::transform(module_name.begin(), module_name.end(), module_name.begin(), std::tolower);
+		str_tolower(module_name);
 
 		const auto& functions{ this->m_hooked_funcs.find(module_name) };
 		if (functions == this->m_hooked_funcs.end()) // not hooked

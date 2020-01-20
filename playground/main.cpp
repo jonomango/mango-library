@@ -4,11 +4,7 @@
 #include "unit_tests.h"
 
 
-DWORD WINAPI new_thread(void*) {
-	while (true) {
-
-	}
-
+DWORD WINAPI test_thread(void*) {
 	return 1;
 }
 
@@ -19,7 +15,6 @@ int main() {
 
 	try {
 		const auto process(mango::Process::current());
-		
 
 	} catch (std::exception& e) {
 		mango::logger.error(e.what());
