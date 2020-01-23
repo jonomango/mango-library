@@ -40,8 +40,6 @@ namespace mango::hwbp {
 		// this is needed for cross-architecture support
 		template <bool is64bit>
 		void set_hwbp(const HANDLE thread, const uintptr_t address, const Options& options) {
-			// https://en.wikipedia.org/wiki/X86_debug_register
-
 			// get the thread context
 			auto context(get_thread_context<is64bit>(thread));
 
@@ -49,7 +47,19 @@ namespace mango::hwbp {
 			enable(context, address, options);
 
 			// set our modified thread context
-			return set_thread_context<is64bit>(thread, context);
+			set_thread_context<is64bit>(thread, context);
+		}
+
+		template <bool is64bit>
+		void remove_hwbp(const HANDLE thread, const uintptr_t address) {
+			// get the thread context
+			auto context(get_thread_context<is64bit>(thread));
+
+			// disable all debug registers with same address
+			disable(context, address);
+
+			// set our modified thread context
+			set_thread_context<is64bit>(thread, context);
 		}
 
 		// sets up DR7 for our use (or throws) and returns which dbg register was used
@@ -91,12 +101,21 @@ namespace mango::hwbp {
 
 	// set a hardware breakpoint using one of the 4 debug registers
 	// will throw an exception if all registers are used
+	// safe to use on current thread (although technically "undefined behavior")
 	void enable(const Process& process, const HANDLE thread,
 		const uintptr_t address, const Options& options) {
 
-		// dont you just love abstractions?
+		// forward to actual implementation
 		process.is_64bit() ?
 			impl::set_hwbp<true>(thread, address, options) :
 			impl::set_hwbp<false>(thread, address, options);
+	}
+
+	// disable all hardware breakpoint in specified thread that have a value of specified address
+	void disable(const Process& process, const HANDLE thread, const uintptr_t address) {
+		// forward to actual implementation
+		process.is_64bit() ?
+			impl::remove_hwbp<true>(thread, address) :
+			impl::remove_hwbp<false>(thread, address);
 	}
 } // namespace mango::hwbp

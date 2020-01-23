@@ -6,6 +6,7 @@
 #include <Windows.h>
 
 
+// https://en.wikipedia.org/wiki/X86_debug_register
 namespace mango::hwbp {
 	enum class Type {
 		execute   = 0b00,
@@ -42,6 +43,7 @@ namespace mango::hwbp {
 
 	// set a hardware breakpoint using one of the 4 debug registers
 	// will throw an exception if all registers are used
+	// safe to use on current thread (although technically "undefined behavior")
 	void enable(const Process& process, const HANDLE thread, 
 		const uintptr_t address, const Options& options = Options{});
 
@@ -54,10 +56,13 @@ namespace mango::hwbp {
 		context.Dr7 = DR7;
 	}
 
+	// disable all hardware breakpoint in specified thread that have a value of specified address
+	void disable(const Process& process, const HANDLE thread, const uintptr_t address);
+
 	// Ctx must be either CONTEXT or WOW64_CONTEXT
 	template <typename Ctx>
 	void disable(Ctx& context, const uintptr_t address) {
-		uint32_t DR7(context.Dr7);
+		auto DR7(uint32_t(context.Dr7));
 
 		for (size_t i(0); i < 4; ++i) {
 			if (!is_enabled(DR7, i))

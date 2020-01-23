@@ -10,6 +10,7 @@
 #include <epic/pattern_scanner.h>
 #include <epic/syscalls.h>
 #include <epic/vmt_helpers.h>
+#include <epic/hardware_breakpoint.h>
 
 #include <misc/misc.h>
 #include <misc/unit_test.h>
@@ -428,6 +429,71 @@ void test_pattern_scanner(mango::Process& process) {
 	unit_test.expect_zero(mango::find_pattern(process, process.get_name(), pattern.str()));
 }
 
+void test_hardwarebp(mango::Process& process) {
+	mango::UnitTest unit_test("HardwareBreakpoint");
+
+	// gotta initialize to 0 every time func is called, even tho prob only called once
+	static int exceptioncount;
+	static volatile int testvariable;
+	testvariable = exceptioncount = 0;
+
+	const auto exception_handler([](PEXCEPTION_POINTERS info) -> LONG {
+		// hwbp raises singlestep exception
+		if (info->ExceptionRecord->ExceptionCode != EXCEPTION_SINGLE_STEP)
+			return EXCEPTION_CONTINUE_SEARCH;
+
+		exceptioncount += 1;
+		info->ContextRecord->EFlags |= (1 << 16); // resume flag
+		return EXCEPTION_CONTINUE_EXECUTION;
+	});
+
+	// add an exception handler
+	const auto handle(AddVectoredExceptionHandler(TRUE, PVECTORED_EXCEPTION_HANDLER(exception_handler)));
+	const mango::ScopeGuard _guard(&RemoveVectoredExceptionHandler, handle);
+
+	testvariable = 69;
+
+	// enable hwbp for writing only (not reading)
+	mango::hwbp::enable(process, GetCurrentThread(), uintptr_t(&testvariable), {
+		.type = mango::hwbp::Type::write,
+		.size = mango::hwbp::Size::four
+	});
+
+	unit_test.expect_value(testvariable, 69);
+
+	// this should trigger an exception
+	testvariable = 420;
+
+	// code should still execute even though the exception was raised
+	unit_test.expect_value(testvariable, 420);
+
+	// disable all hwbp's on this address (only one)
+	mango::hwbp::disable(process, GetCurrentThread(), uintptr_t(&testvariable));
+
+	// this should NOT raise an exception since we called hwbp::disable()
+	testvariable = 69;
+	unit_test.expect_value(testvariable, 69);
+
+	// enable hwbp again but for read AND write
+	mango::hwbp::enable(process, GetCurrentThread(), uintptr_t(&testvariable), {
+		.type = mango::hwbp::Type::readwrite,
+		.size = mango::hwbp::Size::four
+	});
+
+	// the write will raise an exception and the read will raise another one
+	testvariable = 420;
+	unit_test.expect_value(testvariable, 420);
+
+	// disable once again
+	mango::hwbp::disable(process, GetCurrentThread(), uintptr_t(&testvariable));
+
+	// reading and writing should no longer trigger exceptions
+	testvariable = 69;
+	unit_test.expect_value(testvariable, 69);
+
+	unit_test.expect_value(exceptioncount, 3);
+}
+
 void test_misc(mango::Process& process) {
 	mango::UnitTest unit_test{ "Misc" };
 
@@ -467,8 +533,9 @@ void run_unit_tests() {
 		test_shellcode(process);
 		test_loaded_module(process);
 		test_pattern_scanner(process);
+		test_hardwarebp(process);
 		test_misc(process);
-	} catch (mango::MangoError& e) {
+	} catch (const mango::MangoError& e) {
 		mango::logger.error("Exception caught: ", e.what());
 	}
 }
