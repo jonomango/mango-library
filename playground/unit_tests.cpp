@@ -7,7 +7,7 @@
 #include <epic/shellcode.h>
 #include <epic/loader.h>
 #include <epic/loaded_module.h>
-#include <epic/pattern_scanner.h>
+#include <epic/memory_scanner.h>
 #include <epic/syscalls.h>
 #include <epic/vmt_helpers.h>
 #include <epic/hardware_breakpoint.h>
@@ -387,46 +387,7 @@ void test_loaded_module(mango::Process& process) {
 void test_pattern_scanner(mango::Process& process) {
 	mango::UnitTest unit_test{ "PatternScanner" };
 
-	// generate random data
-	static uint8_t random_data[512]; // has to be static (so it's not allocated on the stack)
-	for (size_t i{ 0 }; i < sizeof(random_data); ++i)
-		random_data[i] = uint8_t(rand());
-
-	std::ostringstream pattern{};
-
-	// uppercase, single spaces, no wildcards
-	for (size_t i{ 0 }; i < sizeof(random_data); ++i)
-		pattern << std::setfill('0') << std::setw(2) << std::uppercase << std::hex << +random_data[i] << " ";
-	unit_test.expect_value(mango::find_pattern(process, process.get_name(), pattern.str()), uintptr_t(&random_data));
-
-	// lowercase, single spaces, no wildcards
-	pattern.str("");
-	for (size_t i{ 0 }; i < sizeof(random_data); ++i)
-		pattern << std::setfill('0') << std::setw(2) << std::hex << +random_data[i] << " ";
-	unit_test.expect_value(mango::find_pattern(process, process.get_name(), pattern.str()), uintptr_t(&random_data));
-
-	// lowercase, varying spaces, no wildcards
-	pattern.str("");
-	for (size_t i{ 0 }; i < sizeof(random_data); ++i)
-		pattern << std::setfill('0') << std::setw(2) << std::hex << +random_data[i] << std::string(rand() % 10, ' ');
-	unit_test.expect_value(mango::find_pattern(process, process.get_name(), pattern.str()), uintptr_t(&random_data));
-
-	// lowercase, varying spaces, with wildcards
-	pattern.str("");
-	for (size_t i{ 0 }; i < sizeof(random_data); ++i) {
-		if (rand() % 10) {
-			pattern << std::setfill('0') << std::setw(2) << std::hex << +random_data[i] << std::string(rand() % 10, ' ');
-		} else {
-			pattern << "?";
-		}
-	}
-	unit_test.expect_value(mango::find_pattern(process, process.get_name(), pattern.str()), uintptr_t(&random_data));
-
-	// random pattern, shouldn't find anything
-	pattern.str("");
-	for (size_t i{ 0 }; i < 512; ++i)
-		pattern << std::setfill('0') << std::setw(2) << std::hex << rand() % 256;
-	unit_test.expect_zero(mango::find_pattern(process, process.get_name(), pattern.str()));
+	// TODO: re-add
 }
 
 void test_hardwarebp(mango::Process& process) {

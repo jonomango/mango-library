@@ -59,7 +59,7 @@ namespace mango {
 	}
 
 	// register and start a service using the service control manager
-	SC_HANDLE create_and_start_service(const std::string& service_name, const std::string& file_path) {
+	SC_HANDLE create_and_start_service(const std::string_view service_name, const std::string_view file_path) {
 		const auto sc_manager{ OpenSCManagerA(nullptr, nullptr, SC_MANAGER_CREATE_SERVICE) };
 		if (!sc_manager)
 			throw FailedToOpenServiceControlManager{ mango_format_w32status(GetLastError()) };
@@ -67,16 +67,19 @@ namespace mango {
 		// close the service control manager handle
 		const ScopeGuard _guardone{ &CloseServiceHandle, sc_manager };
 
+		const std::string null_terminated_name(service_name),
+			null_terminated_path(file_path);
+
 		// create our service
 		const auto service{ CreateServiceA(
 			sc_manager,
-			service_name.c_str(),
-			service_name.c_str(),
+			null_terminated_name.c_str(),
+			null_terminated_name.c_str(),
 			SERVICE_START | SERVICE_STOP | DELETE,
 			SERVICE_KERNEL_DRIVER,
 			SERVICE_DEMAND_START,
 			SERVICE_ERROR_IGNORE,
-			file_path.c_str(),
+			null_terminated_path.c_str(),
 			nullptr,
 			nullptr,
 			nullptr,

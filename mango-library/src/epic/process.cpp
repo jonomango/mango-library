@@ -175,7 +175,7 @@ namespace mango {
 				return &(this->m_modules[it->first] = LoadedModule{ *this, it->second });
 		}
 
-		// model not found
+		// module not found
 		return nullptr;
 	}
 

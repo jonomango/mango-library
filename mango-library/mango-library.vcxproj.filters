@@ -30,9 +30,6 @@
     <ClCompile Include="src\misc\misc.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\epic\pattern_scanner.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\epic\loader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -61,6 +58,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\misc\memory_allocator.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\epic\memory_scanner.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -96,9 +96,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\epic\process.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\epic\pattern_scanner.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\epic\loader.h">
@@ -150,6 +147,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\misc\memory_allocator.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\epic\cpuid.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\epic\memory_scanner.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

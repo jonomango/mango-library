@@ -1,9 +1,9 @@
 #include "../../include/epic/shellcode.h"
 
-#include <iomanip>
-
 #include "../../include/epic/process.h"
 #include "../../include/misc/scope_guard.h"
+
+#include <iomanip>
 
 
 namespace mango {
