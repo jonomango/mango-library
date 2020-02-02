@@ -17,6 +17,12 @@ namespace mango {
 	template <typename T, size_t C>
 	class Vector : public std::array<T, C> {
 	public:
+		// only arithmetic values
+		static_assert(std::is_arithmetic_v<T>, "Only arithmetic types supported");
+
+		// dimension >= 1
+		static_assert(C >= 1, "Must have a size of one or more");
+
 		// std::array::fill() is not constexpr btw
 		constexpr explicit Vector(const T& scalar = T{ 0 }) noexcept {
 			for_constexpr<0, C, 1>([&](const size_t i) {
@@ -153,13 +159,6 @@ namespace mango {
 				return double((*this)[center]);
 			}
 		}
-
-	private:
-		// only arithmetic values
-		static_assert(std::is_arithmetic_v<T>, "Only arithmetic types supported");
-
-		// dimension >= 2
-		static_assert(C > 1, "Must have a size of two or more");
 	};
 
 	// lets you do stuff like std::cout << vec;

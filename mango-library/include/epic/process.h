@@ -7,6 +7,7 @@
 
 #include "windows_defs.h"
 #include "loaded_module.h"
+#include "../misc/error_codes.h"
 #include "../misc/misc.h"
 
 
@@ -34,10 +35,10 @@ namespace mango {
 			ACCESS_MASK handle_access = PROCESS_ALL_ACCESS;
 
 			// user-defineable
-			ReadMemoryFunc read_memory_func = default_read_memory_func;
-			WriteMemoryFunc write_memory_func = default_write_memory_func;
-			AllocateMemoryFunc allocate_memory_func = default_allocate_memory_func;
-			FreeMemoryFunc free_memory_func = default_free_memory_func;
+			ReadMemoryFunc read_memory_func                  = default_read_memory_func;
+			WriteMemoryFunc write_memory_func                = default_write_memory_func;
+			AllocateMemoryFunc allocate_memory_func          = default_allocate_memory_func;
+			FreeMemoryFunc free_memory_func                  = default_free_memory_func;
 			CreateRemoteThreadFunc create_remote_thread_func = default_create_remote_thread_func;
 		};
 
@@ -57,6 +58,10 @@ namespace mango {
 
 		// just calls release
 		~Process() noexcept { this->release(); }
+
+		// prevent copying (and moving cuz fuck you)
+		Process(const Process&) = delete;
+		Process& operator=(const Process&) = delete;
 
 		// get the current process
 		static Process current(const SetupOptions& options = SetupOptions()) { 
@@ -117,14 +122,32 @@ namespace mango {
 		// api name -> dll name
 		std::string resolve_apiset(const std::string_view name) const;
 
-		// peb structures
-		PEB_M32 get_peb32() const;
-		PEB_M64 get_peb64() const;
-		uintptr_t get_peb32_addr() const;
-		uintptr_t get_peb64_addr() const;
+		// read the peb
+		// get_peb<uint32_t> or get_peb<uint64_t>
+		template <typename Ptr = uintptr_t>
+		auto get_peb() const { return this->read<windows::PEB<Ptr>>(this->get_peb_addr<Ptr>()); }
+
+		// get the peb address
+		// get_peb_addr<uint32_t> or get_peb_addr<uint64_t>
+		template <typename Ptr>
+		uintptr_t get_peb_addr() const {
+			// only 32bit / 64bit allowed
+			static_assert(sizeof(Ptr) == 4 || sizeof(Ptr) == 8, "Invalid Ptr size");
+
+			if constexpr (sizeof(Ptr) == 8) {
+				return this->m_peb64_address;
+			} else {
+				if (this->is_64bit())
+					throw NotA32BitProcess{};
+				// wow64 peb is +one page from the 64bit peb
+				return this->m_peb64_address + 0x1000;
+			}
+		}
 
 		// read from a memory address
-		void read(const void* const address, void* const buffer, const size_t size) const;
+		void read(const void* const address, void* const buffer, const size_t size) const {
+			this->m_options.read_memory_func(this, address, buffer, size);
+		}
 		void read(const uintptr_t address, void* const buffer, const size_t size) const {
 			this->read(reinterpret_cast<void*>(address), buffer, size);
 		}
@@ -137,7 +160,9 @@ namespace mango {
 		}
 
 		// write to a memory address
-		void write(void* const address, const void* const buffer, const size_t size) const;
+		void write(void* const address, const void* const buffer, const size_t size) const {
+			this->m_options.write_memory_func(this, address, buffer, size);
+		}
 		void write(const uintptr_t address, const void* const buffer, const size_t size) const {
 			this->write(reinterpret_cast<void*>(address), buffer, size);
 		}
@@ -152,10 +177,15 @@ namespace mango {
 		// NOTE: prefer using a ProcessMemoryAllocator instead of this directly
 		void* alloc_virt_mem(const size_t size,
 			const uint32_t protection = PAGE_READWRITE,
-			const uint32_t type = MEM_COMMIT | MEM_RESERVE) const;
+			const uint32_t type = MEM_COMMIT | MEM_RESERVE) const 
+		{
+			return this->m_options.allocate_memory_func(this, size, protection, type);
+		}
 
 		// free virtual memory in the process (wrapper for VirtualFreeEx)
-		void free_virt_mem(void* const address, const size_t size = 0, const uint32_t type = MEM_RELEASE) const;
+		void free_virt_mem(void* const address, const size_t size = 0, const uint32_t type = MEM_RELEASE) const {
+			this->m_options.free_memory_func(this, address, size, type);
+		}
 		void free_virt_mem(const uintptr_t address, const size_t size = 0, const uint32_t type = MEM_RELEASE) const {
 			this->free_virt_mem(reinterpret_cast<void*>(address), size, type);
 		}
@@ -172,8 +202,10 @@ namespace mango {
 			return this->set_mem_prot(reinterpret_cast<void*>(address), size, protection);
 		}
 
-		// wrapper over CreateRemoteThread (will wait infinitely for the thread to finish)
-		void create_remote_thread(void* const address, void* const argument = nullptr) const;
+		// wrapper over CreateRemoteThread (waits for the thread to finish execution)
+		void create_remote_thread(void* const address, void* const argument = nullptr) const {
+			this->m_options.create_remote_thread_func(this, address, argument);
+		}
 		void create_remote_thread(const uintptr_t address, const uintptr_t argument = 0) const {
 			this->create_remote_thread(reinterpret_cast<void*>(address), reinterpret_cast<void*>(argument));
 		}
@@ -187,13 +219,6 @@ namespace mango {
 
 		// updates the internal list of modules
 		void load_modules();
-
-		// a more intuitive way to test for validity
-		explicit operator bool() const { return this->is_valid(); }
-
-		// prevent copying
-		Process(const Process&) = delete;
-		Process& operator=(const Process&) = delete;
 
 	private:
 		// get the name of the process (to cache it)

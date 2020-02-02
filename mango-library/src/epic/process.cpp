@@ -6,11 +6,8 @@
 #include <WtsApi32.h>
 
 #include "../../include/epic/shellcode.h"
-#include "../../include/epic/syscalls.h"
-#include "../../include/epic/windows_defs.h"
 
 #include "../../include/misc/scope_guard.h"
-#include "../../include/misc/error_codes.h"
 #include "../../include/misc/logger.h"
 
 
@@ -20,22 +17,22 @@ namespace {
 	void iterate_modules(const mango::Process& process, Callable&& callback) {
 		using namespace mango;
 
-		// get the corresponding peb structure for the process (32bit vs 64bit)
-		_PEB_INTERNAL<Ptr> peb{};
-		if constexpr (sizeof(Ptr) == 4) {
-			peb = process.get_peb32();
-		} else {
-			peb = process.get_peb64();
-		}
+		const auto peb = process.get_peb<Ptr>();
 
 		// PEB_LDR_DATA
-		const auto list_head = process.read<_PEB_LDR_DATA_INTERNAL<Ptr>>(peb.Ldr).InMemoryOrderModuleList;
-		for (auto current = list_head.Flink; current != list_head.Blink;) {
+		const auto list_head = process.read<windows::PEB_LDR_DATA<Ptr>>(peb.Ldr).InMemoryOrderModuleList;
+		for (auto current = list_head.Flink; current && current != list_head.Blink;) {
 			// LDR_DATA_TABLE_ENTRY
-			const auto table_addr = current - offsetof(_LDR_DATA_TABLE_ENTRY_INTERNAL<Ptr>, InMemoryOrderLinks);
-			const auto table_entry = process.read<_LDR_DATA_TABLE_ENTRY_INTERNAL<Ptr>>(table_addr);
+			const auto table_addr = current - offsetof(windows::LDR_DATA_TABLE_ENTRY<Ptr>, InMemoryOrderLinks);
+			if (!table_addr)
+				break;
+
+			const auto table_entry = process.read<windows::LDR_DATA_TABLE_ENTRY<Ptr>>(table_addr);
 
 			const auto name_addr{ uintptr_t(table_entry.FullDllName.Buffer) };
+			if (!name_addr)
+				break;
+
 			const auto name_size{ size_t(table_entry.FullDllName.Length) };
 
 			// read the dll name
@@ -47,7 +44,7 @@ namespace {
 			std::invoke(callback, wstr_to_str(name_wstr.get()), table_entry.DllBase);
 
 			// proceed to next entry
-			current = process.read<_LIST_ENTRY_INTERNAL<Ptr>>(current).Flink;
+			current = process.read<windows::LIST_ENTRY<Ptr>>(current).Flink;
 		}
 	}
 } // namespace
@@ -113,7 +110,7 @@ namespace mango {
 		OBJECT_ATTRIBUTES object_attributes{ sizeof(object_attributes) };
 
 		// open a handle to the process
-		const auto status{ NtOpenProcess(&this->m_handle, options.handle_access, &object_attributes, &clientid) };
+		const auto status{ windows::NtOpenProcess(&this->m_handle, options.handle_access, &object_attributes, &clientid) };
 		if (!NT_SUCCESS(status))
 			throw InvalidProcessHandle(mango_format_ntstatus(status));
 
@@ -219,14 +216,14 @@ namespace mango {
 
 		// api set map addr is stored in the PEB
 		const auto api_set_map_addr(this->is_64bit() ? 
-			uintptr_t(this->get_peb64().ApiSetMap) : 
-			uintptr_t(this->get_peb32().ApiSetMap));
+			uintptr_t(this->get_peb<uint64_t>().ApiSetMap) : 
+			uintptr_t(this->get_peb<uint32_t>().ApiSetMap));
 
-		const auto api_set_map(this->read<API_SET_NAMESPACE>(api_set_map_addr));
+		const auto api_set_map(this->read<windows::API_SET_NAMESPACE>(api_set_map_addr));
 
 		// read every entry at once for optimization
-		const auto entries(std::make_unique<API_SET_NAMESPACE_ENTRY[]>(api_set_map.Count));
-		this->read(api_set_map_addr + api_set_map.EntryOffset, entries.get(), api_set_map.Count * sizeof(API_SET_NAMESPACE_ENTRY));
+		const auto entries(std::make_unique<windows::API_SET_NAMESPACE_ENTRY[]>(api_set_map.Count));
+		this->read(api_set_map_addr + api_set_map.EntryOffset, entries.get(), api_set_map.Count * sizeof(windows::API_SET_NAMESPACE_ENTRY));
 
 		// go through each entry
 		for (size_t i(0); i < api_set_map.Count; ++i) {
@@ -247,7 +244,7 @@ namespace mango {
 
 			// is this what we're looking for?
 			if (entry_name.compare(0, search_name.size(), search_name) == 0) {
-				const auto value(this->read<API_SET_VALUE_ENTRY>(api_set_map_addr + entry.ValueOffset));
+				const auto value(this->read<windows::API_SET_VALUE_ENTRY>(api_set_map_addr + entry.ValueOffset));
 				
 				// read the value name
 				std::wstring resolved_name(value.ValueLength / 2, L' ');
@@ -262,70 +259,35 @@ namespace mango {
 		throw FailedToResolveApiSetName(enc_str("Name = "), '"', name, '"');
 	}
 
-	// peb structures
-	PEB_M32 Process::get_peb32() const {
-		return this->read<PEB_M32>(this->get_peb32_addr());
-	}
-	PEB_M64 Process::get_peb64() const {
-		return this->read<PEB_M64>(this->get_peb64_addr());
-	}
-	uintptr_t Process::get_peb32_addr() const {
-		if (this->is_64bit())
-			throw NotA32BitProcess{};
-		return this->m_peb64_address + 0x1000;
-	}
-	uintptr_t Process::get_peb64_addr() const {
-		return this->m_peb64_address;
-	}
-
-	// read from a memory address
-	void Process::read(const void* const address, void* const buffer, const size_t size) const {
-		this->m_options.read_memory_func(this, address, buffer, size);
-	}
-
-	// write to a memory address
-	void Process::write(void* const address, const void* const buffer, const size_t size) const {
-		this->m_options.write_memory_func(this, address, buffer, size);
-	}
-
-	// allocate virtual memory in the process (wrapper for VirtualAllocEx)
-	void* Process::alloc_virt_mem(const size_t size, const uint32_t protection, const uint32_t type) const {
-		return this->m_options.allocate_memory_func(this, size, protection, type);
-	}
-
-	// free virtual memory in the process (wrapper for VirtualFreeEx)
-	void Process::free_virt_mem(void* const address, const size_t size, const uint32_t type) const {
-		this->m_options.free_memory_func(this, address, size, type);
-	}
-
 	// get the protection of a page of memory
 	uint32_t Process::get_mem_prot(void* const address) const {
 		MEMORY_BASIC_INFORMATION buffer{};
-		if (const auto status{ NtQueryVirtualMemory(this->m_handle, address, MemoryBasicInformation, &buffer, sizeof(buffer), nullptr) }; !NT_SUCCESS(status))
+		if (const auto status{ windows::NtQueryVirtualMemory(this->m_handle, address,
+			windows::MemoryBasicInformation, &buffer, sizeof(buffer), nullptr) }; NT_ERROR(status)) 
+		{
 			throw FailedToQueryMemoryProtection{ mango_format_ntstatus(status) };
+		}
 		return buffer.Protect;
 	}
 
 	// set the protection, returns the old protection
 	uint32_t Process::set_mem_prot(void* address, const size_t size, const uint32_t protection) const {
 		DWORD OldAccessProtection{ 0 }; SIZE_T NumberOfBytesToProtect{ size };
-		if (const auto status{ NtProtectVirtualMemory(this->m_handle, &address, &NumberOfBytesToProtect, protection, &OldAccessProtection) }; !NT_SUCCESS(status))
+		if (const auto status{ windows::NtProtectVirtualMemory(this->m_handle, &address,
+			&NumberOfBytesToProtect, protection, &OldAccessProtection) }; NT_ERROR(status)) 
+		{
 			throw FailedToSetMemoryProtection{ mango_format_ntstatus(status) };
+		}
 		return OldAccessProtection;
-	}
-
-	// wrapper over CreateRemoteThread (will wait infinitely for the thread to finish)
-	void Process::create_remote_thread(void* const address, void* const argument) const {
-		this->m_options.create_remote_thread_func(this, address, argument);
 	}
 
 	// suspend/resume the process
 	void Process::suspend() const {
-		if (const auto status{ NtSuspendProcess(this->m_handle) }; !NT_SUCCESS(status))
+		if (const auto status{ windows::NtSuspendProcess(this->m_handle) }; NT_ERROR(status))
 			throw FailedToSuspendProcess{ mango_format_ntstatus(status) };
 	}
 	void Process::resume() const {
-		if (const auto status{ NtResumeProcess(this->m_handle) }; !NT_SUCCESS(status))
+		if (const auto status{ windows::NtResumeProcess(this->m_handle) }; NT_ERROR(status))
 			throw FailedToResumeProcess{ mango_format_ntstatus(status) };
 	}
 
@@ -339,19 +301,22 @@ namespace mango {
 
 		// query system info
 		NTSTATUS status{ 0 };
-		while ((status = mango::NtQuerySystemInformation(SystemHandleInformation, buffer, buffer_size, nullptr)) == 0xC0000004) {
-			// buffer too small; allocate larger
+		while (0xC0000004 == (status = windows::NtQuerySystemInformation(
+			windows::SystemHandleInformation, buffer, buffer_size, nullptr))) 
+		{
+			// STATUS_INFO_LENGTH_MISMATCH
+			// buffer too small, allocate larger
 			delete[] buffer; buffer = new uint8_t[buffer_size *= 2];
 		}
 
 		// failure
-		if (!NT_SUCCESS(status))
+		if (NT_ERROR(status))
 			throw FailedToQuerySystemInformation{ mango_format_ntstatus(status) };
 
 		std::vector<HandleInfo> handles{};
 
 		// filter out handles to the process
-		const auto handle_info = PSYSTEM_HANDLE_INFORMATION(buffer);
+		const auto handle_info = reinterpret_cast<windows::SYSTEM_HANDLE_INFORMATION*>(buffer);
 		for (size_t i{ 0 }; i < handle_info->HandleCount; ++i) {
 			const auto entry = handle_info->Handles[i];
 
@@ -444,8 +409,11 @@ namespace mango {
 	// the address of the 64bit peb
 	uintptr_t Process::query_peb64_address() const {
 		PROCESS_BASIC_INFORMATION info{};
-		if (const auto status{ mango::NtQueryInformationProcess(this->m_handle, ProcessBasicInformation, &info, sizeof(info), nullptr) }; !NT_SUCCESS(status))
+		if (const auto status{ windows::NtQueryInformationProcess(this->m_handle,
+			ProcessBasicInformation, &info, sizeof(info), nullptr) }; NT_ERROR(status)) 
+		{
 			throw FailedToQueryProcessInformation{ mango_format_ntstatus(status) };
+		}
 
 		if constexpr (sizeof(void*) == 8) { // host is a 64bit process
 			return uintptr_t(info.PebBaseAddress);
@@ -492,7 +460,9 @@ namespace mango {
 		if (process->is_self()) {
 			if (memcpy_s(buffer, size, address, size))
 				throw FailedToReadMemory{};
-		} else if (const auto status{ NtReadVirtualMemory(process->get_handle(), address, buffer, size, nullptr) }; !NT_SUCCESS(status)) {
+		} else if (const auto status{ windows::NtReadVirtualMemory(
+			process->get_handle(), address, buffer, size, nullptr) }; NT_ERROR(status)) 
+		{
 			throw FailedToReadMemory{ mango_format_ntstatus(status) };
 		}
 	}
@@ -500,25 +470,36 @@ namespace mango {
 		if (process->is_self()) {
 			if (memcpy_s(address, size, buffer, size))
 				throw FailedToWriteMemory{};
-		} else if (const auto status{ NtWriteVirtualMemory(process->get_handle(), address, buffer, size, nullptr) }; !NT_SUCCESS(status)) {
+		} else if (const auto status{ windows::NtWriteVirtualMemory(
+			process->get_handle(), address, buffer, size, nullptr) }; NT_ERROR(status)) 
+		{
 			throw FailedToWriteMemory{ mango_format_ntstatus(status) };
 		}
 	}
 	void* Process::default_allocate_memory_func(const Process* const process, const size_t size, const uint32_t protection, const uint32_t type) {
 		void* address{ nullptr }; SIZE_T region_size{ size };
-		if (const auto status{ NtAllocateVirtualMemory(process->get_handle(), &address, 0, &region_size, type, protection) }; !NT_SUCCESS(status))
+		if (const auto status{ windows::NtAllocateVirtualMemory(process->get_handle(),
+			&address, 0, &region_size, type, protection) }; NT_ERROR(status)) 
+		{
 			throw FailedToAllocateVirtualMemory{ mango_format_ntstatus(status) };
+		}
 		return address;
 	}
 	void Process::default_free_memory_func(const Process* const process, void* const address, const size_t size, const uint32_t type) {
 		void* base_address{ address }; SIZE_T region_size{ size };
-		if (const auto status{ NtFreeVirtualMemory(process->get_handle(), &base_address, &region_size, type) }; !NT_SUCCESS(status))
+		if (const auto status{ windows::NtFreeVirtualMemory(process->get_handle(),
+			&base_address, &region_size, type) }; NT_ERROR(status)) 
+		{
 			throw FailedToFreeVirtualMemory{ mango_format_ntstatus(status) };
+		}
 	}
 	void Process::default_create_remote_thread_func(const Process* const process, void* const address, void* const argument) {
 		HANDLE thread_handle{};
-		if (const auto status{ NtCreateThreadEx(&thread_handle, THREAD_ALL_ACCESS, nullptr, process->get_handle(), address, argument, 0, 0, 0, 0, nullptr) }; !NT_SUCCESS(status))
+		if (const auto status{ windows::NtCreateThreadEx(&thread_handle, THREAD_ALL_ACCESS, nullptr,
+			process->get_handle(), address, argument, 0, 0, 0, 0, nullptr) }; NT_ERROR(status)) 
+		{
 			throw FailedToCreateRemoteThread{ mango_format_ntstatus(status) };
+		}
 
 		WaitForSingleObject(thread_handle, INFINITE);
 		CloseHandle(thread_handle);

@@ -25,6 +25,17 @@ namespace mango {
 		template <typename ...Args>
 		explicit Shellcode(Args&& ...args) noexcept { this->push(std::forward<Args>(args)...);  }
 
+		// allow copying
+		Shellcode(Shellcode&) = default;
+		Shellcode& operator=(Shellcode&) = default;
+
+		// allow moving
+		Shellcode(Shellcode&& other) noexcept { *this = std::move(other); }
+		Shellcode& operator=(Shellcode&& other) {
+			this->m_data = std::move(other.m_data);
+			return *this;
+		}
+
 		// allocate memory in the target process
 		uintptr_t allocate(const Process& process) const;
 

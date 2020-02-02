@@ -19,7 +19,7 @@ public:\
 };
 
 namespace mango {
-	// base class of all mango-library exception
+	// base class of all mango-library exceptions
 	class MangoError : public std::exception {
 	public:
 		template <typename ...Args>

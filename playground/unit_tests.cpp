@@ -8,7 +8,7 @@
 #include <epic/loader.h>
 #include <epic/loaded_module.h>
 #include <epic/memory_scanner.h>
-#include <epic/syscalls.h>
+#include <epic/syscall.h>
 #include <epic/vmt_helpers.h>
 #include <epic/hardware_breakpoint.h>
 
@@ -28,7 +28,6 @@ void test_process(mango::Process& process) {
 	mango::UnitTest unit_test{ "Process" };
 
 	// process is not initialized yet
-	unit_test.expect_zero(process);
 	unit_test.expect_zero(process.is_valid());
 
 	process.setup(GetCurrentProcessId());
@@ -56,7 +55,6 @@ void test_process(mango::Process& process) {
 	process.setup(GetCurrentProcess());
 
 	// process is init now
-	unit_test.expect_nonzero(process);
 	unit_test.expect_nonzero(process.is_valid());
 
 	// yes, this is our process
@@ -77,14 +75,14 @@ void test_process(mango::Process& process) {
 
 	// 32bit peb
 	if (!process.is_64bit()) {
-		const auto peb{ process.get_peb32() };
+		const auto peb{ process.get_peb<uint32_t>() };
 		unit_test.expect_value(peb.ImageBaseAddress, uintptr_t(GetModuleHandle(nullptr)));
 		unit_test.expect_value(peb.BeingDebugged, IsDebuggerPresent());
 	}
 
 	// 64bit peb
 	if (!process.is_64bit() || process.is_wow64()) {
-		const auto peb{ process.get_peb64() };
+		const auto peb{ process.get_peb<uint64_t>() };
 		unit_test.expect_value(peb.ImageBaseAddress, uintptr_t(GetModuleHandle(nullptr)));
 		unit_test.expect_value(peb.BeingDebugged, IsDebuggerPresent());
 	}
@@ -313,7 +311,7 @@ void test_syscall_hooks(mango::Process& process) {
 
 	const auto syscall_callback{ static_cast<bool(*)(const uint32_t, uint32_t* const, volatile uint32_t)>(
 		[](const uint32_t syscall_index, uint32_t* const arguments, volatile uint32_t return_value) {
-		if (syscall_index == mango::syscall_index("NtReadVirtualMemory")) {
+		if (syscall_index == mango::syscall::index("NtReadVirtualMemory")) {
 			*reinterpret_cast<uint32_t*>(uintptr_t(arguments[1])) = 420;
 			return_value = 0;
 			return false;

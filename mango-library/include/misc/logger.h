@@ -16,8 +16,6 @@ namespace mango {
 	// the data is passed in the std::stringstream
 	using LoggingChannel = void(*)(std::ostringstream&&);
 
-#pragma warning(push)
-#pragma warning(disable : 4201) // warning C4201: nonstandard extension used: nameless struct/union
 	union LoggingChannels {
 		LoggingChannel channels[1];
 		struct {
@@ -25,9 +23,9 @@ namespace mango {
 				success,
 				warning,
 				error;
+#pragma warning(suppress: 4201) // warning C4201: nonstandard extension used: nameless struct/union
 		};
 	};
-#pragma warning(pop)
 
 	// basic colored console logging
 	LoggingChannels basic_colored_logging();
@@ -79,7 +77,7 @@ namespace mango {
 
 			// create a stringstream with the data
 			std::ostringstream ss{};
-			(ss << ... << args);
+			(ss << ... << std::forward<Args>(args));
 			channel(std::move(ss));
 		}
 	private:

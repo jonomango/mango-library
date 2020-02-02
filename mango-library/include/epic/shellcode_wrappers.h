@@ -76,7 +76,7 @@ namespace mango::shw {
 	// callback prototype: 
 	//     void __fastcall callback(PEXCEPTION_POINTERS)
 	template <bool is64bit>
-	constexpr auto debug_register_veh(const mango::PtrType<is64bit> hookaddress, const mango::PtrType<is64bit> callback) noexcept {
+	constexpr auto debug_register_veh(const PtrType<is64bit> hookaddress, const PtrType<is64bit> callback) noexcept {
 		if constexpr (is64bit) {
 			return std::array<uint8_t, 74>{
 				0x48ui8, 0x8Bui8, 0x01ui8, 0x81ui8, 0x38ui8, 0x04ui8, 0x00ui8, 0x00ui8,

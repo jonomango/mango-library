@@ -21,7 +21,21 @@ namespace mango {
 		Driver(const std::string_view name, const SetupOptions& options = SetupOptions()) {
 			this->setup(name, options);
 		}
-		~Driver() { this->release(); }
+		~Driver() noexcept { this->release(); }
+
+		// prevent copying
+		Driver(const Driver&) = delete;
+		Driver& operator=(const Driver&) = delete;
+
+		// move semantics
+		Driver(Driver&& other) noexcept { *this = std::move(other); }
+		Driver& operator=(Driver&& other) noexcept {
+			this->m_handle = other.m_handle;
+			this->m_is_valid = other.m_is_valid;
+			other.m_handle = nullptr;
+			other.m_is_valid = false;
+			return *this;
+		}
 
 		// open a handle to the driver
 		void setup(const std::string_view name, const SetupOptions& options = SetupOptions());

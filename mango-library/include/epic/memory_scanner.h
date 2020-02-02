@@ -14,6 +14,8 @@ namespace mango::memscn {
 		size_t size = size_t(-1);
 	};
 
+	static constexpr auto range_all = Range{ .start = 0, .size = size_t(-1) };
+
 	// readable data isn't an option since it has to be allowed (duh)
 	struct Filter {
 		bool executable;
@@ -55,7 +57,7 @@ namespace mango::memscn {
 
 	// search the memory for the provided pattern
 	std::vector<uintptr_t> scan(const Process& process, const Pattern& pattern, 
-		const Range& range = {}, const Filter& filter = all_filter);
+		const Range& range = range_all, const Filter& filter = all_filter);
 	std::vector<uintptr_t> scan(const Process& process, const Pattern& pattern,
 		const std::string_view modulename, const Filter& filter = all_filter);
 

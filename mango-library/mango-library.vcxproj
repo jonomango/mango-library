@@ -34,7 +34,7 @@
     <ClInclude Include="include\epic\iat_hook.h" />
     <ClInclude Include="include\epic\loader.h" />
     <ClInclude Include="include\epic\process.h" />
-    <ClInclude Include="include\epic\syscalls.h" />
+    <ClInclude Include="include\epic\syscall.h" />
     <ClInclude Include="include\epic\wow64_syscall_hook.h" />
     <ClInclude Include="include\epic\vmt_hook.h" />
     <ClInclude Include="include\epic\loaded_module.h" />
@@ -57,7 +57,7 @@
     <ClCompile Include="src\misc\memory_allocator.cpp" />
     <ClCompile Include="src\epic\unused_memory.cpp" />
     <ClCompile Include="src\epic\iat_hook.cpp" />
-    <ClCompile Include="src\epic\syscalls.cpp" />
+    <ClCompile Include="src\epic\syscall.cpp" />
     <ClCompile Include="src\epic\wow64_syscall_hook.cpp" />
     <ClCompile Include="src\epic\vmt_hook.cpp" />
     <ClCompile Include="src\epic\loader.cpp" />

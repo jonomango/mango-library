@@ -1,4 +1,4 @@
-#include "../../include/epic/syscalls.h"
+#include "../../include/epic/syscall.h"
 
 #include "../../include/misc/error_codes.h"
 #include "../../include/crypto/string_encryption.h"
@@ -6,9 +6,9 @@
 #include <Windows.h>
 
 
-namespace mango {
+namespace mango::syscall {
 	// dynamically get the sycall index of a function in ntdll.dll
-	uint32_t syscall_index(const std::string& func_name) {
+	uint32_t index(const std::string& func_name) {
 		static const auto ntdll_handle{ GetModuleHandle(enc_str("ntdll.dll").c_str()) };
 
 		// get the function address
@@ -41,4 +41,4 @@ namespace mango {
 		}
 	} // namespace impl
 #endif
-} // namespace mango
+} // namespace mango::syscall

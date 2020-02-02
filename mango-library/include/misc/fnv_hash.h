@@ -20,6 +20,8 @@ namespace mango {
 	template <typename T>
 	class Fnv1 {
 	public:
+		static_assert(std::is_integral_v<T>, "T must be an integral type");
+
 		constexpr Fnv1() noexcept = default;
 		constexpr Fnv1(const T hash) noexcept : m_value{ hash } {}
 
@@ -51,6 +53,8 @@ namespace mango {
 	template <typename T>
 	class Fnv1a {
 	public:
+		static_assert(std::is_integral_v<T>, "T must be an integral type");
+
 		constexpr Fnv1a() noexcept = default;
 		constexpr Fnv1a(const T hash) noexcept : m_value{ hash } {}
 
