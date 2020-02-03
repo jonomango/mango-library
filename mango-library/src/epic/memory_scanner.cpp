@@ -94,7 +94,7 @@ namespace mango::memscn {
 	}
 
 	// search the memory for the provided pattern
-	std::vector<uintptr_t> scan(const Process& process, 
+	std::vector<uintptr_t> find(const Process& process, 
 		const Pattern& pattern, const Range& range, const Filter& filter) 
 	{
 		// to deal with unsigned overflow
@@ -116,20 +116,8 @@ namespace mango::memscn {
 				continue;
 
 			// ignore filtered areas
-			if (!filter.executable) { 
-				if (info.Protect & PAGE_EXECUTE ||
-					info.Protect & PAGE_EXECUTE_READ ||
-					info.Protect & PAGE_EXECUTE_READWRITE ||
-					info.Protect & PAGE_EXECUTE_WRITECOPY)
-					continue;
-			}
-			if (!filter.writeable) {
-				if (info.Protect & PAGE_READWRITE ||
-					info.Protect & PAGE_WRITECOPY ||
-					info.Protect & PAGE_EXECUTE_READWRITE ||
-					info.Protect & PAGE_EXECUTE_WRITECOPY)
-					continue;
-			}
+			if (!filter(info.Protect))
+				continue;
 
 			const auto blockstart = std::max(uintptr_t(info.BaseAddress), range.start);
 			const auto blocksize = std::min(rangeend, address) - blockstart;
@@ -154,12 +142,12 @@ namespace mango::memscn {
 
 		return matching;
 	}
-	std::vector<uintptr_t> scan(const Process& process, const Pattern& pattern,
+	std::vector<uintptr_t> find(const Process& process, const Pattern& pattern,
 		const std::string_view modulename, const Filter& filter) 
 	{
 		// scan from the modulebase to the modulebase + size
 		if (const auto m(process.get_module(modulename)); m) {
-			return scan(process, pattern, Range{
+			return find(process, pattern, Range{
 				.start = m->get_image_base(),
 				.size = m->get_image_size() }, filter);
 		}

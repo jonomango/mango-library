@@ -16,15 +16,20 @@ namespace mango::memscn {
 
 	static constexpr auto range_all = Range{ .start = 0, .size = size_t(-1) };
 
-	// readable data isn't an option since it has to be allowed (duh)
-	struct Filter {
-		bool executable;
-		bool writeable;
-	};
+	// return false to discard memory region based on protection
+	using Filter = bool(*)(uint32_t protection);
 
-	static constexpr auto all_filter = Filter{ .executable = true, .writeable = true };
-	static constexpr auto code_filter = Filter{ .executable = true, .writeable = false };
-	static constexpr auto data_filter = Filter{ .executable = false, .writeable = true };
+	// some default filters
+	constexpr bool all_filter(uint32_t) {
+		return true;
+	}
+	constexpr bool code_filter(const uint32_t protection) {
+		return protection & PAGE_EXECUTE || protection & PAGE_EXECUTE_READ ||
+			protection & PAGE_EXECUTE_READWRITE || protection & PAGE_EXECUTE_WRITECOPY;
+	}
+	constexpr bool data_filter(const uint32_t protection) {
+		return !code_filter(protection);
+	}
 
 	class Pattern {
 	public:
@@ -56,9 +61,9 @@ namespace mango::memscn {
 	};
 
 	// search the memory for the provided pattern
-	std::vector<uintptr_t> scan(const Process& process, const Pattern& pattern, 
+	std::vector<uintptr_t> find(const Process& process, const Pattern& pattern,
 		const Range& range = range_all, const Filter& filter = all_filter);
-	std::vector<uintptr_t> scan(const Process& process, const Pattern& pattern,
+	std::vector<uintptr_t> find(const Process& process, const Pattern& pattern,
 		const std::string_view modulename, const Filter& filter = all_filter);
 
 	// overload << operator

@@ -17,7 +17,7 @@ namespace mango {
 			: m_allocate(std::forward<Allocate>(allocate)),
 			  m_release(std::forward<Release>(release)) {}
 
-		// allocate a block of memory
+		// allocate a block of memory (aligned to a multiple of 8)
 		uintptr_t allocate(const size_t size);
 
 		// free all memory
@@ -26,7 +26,8 @@ namespace mango {
 	private:
 		uintptr_t allocate_new_block(const size_t size);
 
-		static size_t align_up(const size_t size, const size_t alignment);
+		// align value using alignment
+		static size_t align_up(const size_t value, const size_t alignment);
 
 	private:
 		struct AllocationBlock {

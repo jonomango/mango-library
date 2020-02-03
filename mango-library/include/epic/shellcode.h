@@ -1,14 +1,15 @@
 #pragma once
 
+#include "shellcode_wrappers.h"
+#include "../misc/memory_allocator.h"
+#include "../misc/misc.h"
+#include "../misc/math.h"
+
 #include <vector>
 #include <array>
 #include <ostream>
 #include <iostream>
 #include <assert.h>
-
-#include "../misc/memory_allocator.h"
-#include "../misc/misc.h"
-#include "../misc/math.h"
 
 
 namespace mango {

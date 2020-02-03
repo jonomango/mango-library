@@ -40,8 +40,11 @@ namespace mango {
 		}).address;
 	}
 
-	size_t MemoryAllocator::align_up(const size_t size, const size_t alignment) {
-		return (size / alignment + 1) * alignment;
+	// align value using alignment
+	size_t MemoryAllocator::align_up(const size_t value, const size_t alignment) {
+		if (alignment <= 1)
+			return value;
+		return ((value - 1) / alignment + 1) * alignment;
 	}
 
 	ProcessMemoryAllocator::ProcessMemoryAllocator(const mango::Process& process, const uint32_t protection)
