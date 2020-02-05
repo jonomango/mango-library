@@ -30,6 +30,7 @@ namespace mango {
 		// move semantics
 		Driver(Driver&& other) noexcept { *this = std::move(other); }
 		Driver& operator=(Driver&& other) noexcept {
+			this->release();
 			this->m_handle = other.m_handle;
 			this->m_is_valid = other.m_is_valid;
 			other.m_handle = nullptr;

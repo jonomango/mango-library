@@ -77,4 +77,10 @@ namespace mango::windows {
 	NTSTATUS NtResumeProcess(HANDLE ProcessHandle) {
 		SYSCALL_WRAPPER(NtResumeProcess, ProcessHandle)
 	}
+	NTSTATUS NtQueryInformationThread(HANDLE ThreadHandle, THREADINFOCLASS ThreadInformationClass,
+		PVOID ThreadInformation, ULONG ThreadInformationLength, PULONG ReturnLength) 
+	{
+		SYSCALL_WRAPPER(NtQueryInformationThread, ThreadHandle, ThreadInformationClass,
+			ThreadInformation, ThreadInformationLength, ReturnLength)
+	}
 } // namespace mango::windows

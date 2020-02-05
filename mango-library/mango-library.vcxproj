@@ -25,6 +25,7 @@
     <ClInclude Include="include\epic\driver.h" />
     <ClInclude Include="include\epic\hardware_breakpoint.h" />
     <ClInclude Include="include\epic\memory_scanner.h" />
+    <ClInclude Include="include\epic\thread.h" />
     <ClInclude Include="include\misc\memory_allocator.h" />
     <ClInclude Include="include\epic\read_write_variable.h" />
     <ClInclude Include="include\epic\shellcode_wrappers.h" />
@@ -54,6 +55,7 @@
     <ClCompile Include="src\epic\driver.cpp" />
     <ClCompile Include="src\epic\hardware_breakpoint.cpp" />
     <ClCompile Include="src\epic\memory_scanner.cpp" />
+    <ClCompile Include="src\epic\thread.cpp" />
     <ClCompile Include="src\misc\memory_allocator.cpp" />
     <ClCompile Include="src\epic\unused_memory.cpp" />
     <ClCompile Include="src\epic\iat_hook.cpp" />

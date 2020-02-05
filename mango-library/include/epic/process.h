@@ -43,6 +43,7 @@ namespace mango {
 		};
 
 		// containers
+		using ProcessThreadIds = std::vector<uint32_t>;
 		using ProcessHandles = std::vector<HandleInfo>;
 		using ProcessModules = std::unordered_map<std::string, LoadedModule>;
 		using ModuleAddressMap = std::unordered_map<std::string, uintptr_t>;
@@ -56,8 +57,7 @@ namespace mango {
 			this->setup(handle, options);
 		}
 
-		// just calls release
-		~Process() noexcept { this->release(); }
+		~Process() { this->release(); }
 
 		// prevent copying (and moving cuz fuck you)
 		Process(const Process&) = delete;
@@ -107,6 +107,9 @@ namespace mango {
 		// get the name of the process
 		std::string get_name() const noexcept { return this->m_process_name; }
 
+		// get all running thread ids
+		ProcessThreadIds get_threadids() const;
+
 		// get a list of loaded modules
 		const ProcessModules& get_modules() const noexcept { return this->m_modules; }
 
@@ -116,7 +119,7 @@ namespace mango {
 		// get the base address of a module
 		uintptr_t get_module_addr(const std::string_view module_name = "") const;
 
-		// this uses the internal list of modules to find the function address (doesn't account for ApiSchema)
+		// this uses the internal list of modules to find the function address
 		uintptr_t get_proc_addr(const std::string_view module_name, const std::string_view func_name) const;
 
 		// api name -> dll name

@@ -18,6 +18,7 @@ public:\
 	name(Args&& ...info) : mango::MangoError(enc_str(value), ' ', info...) {}\
 };
 
+// TODO: refactor exceptions to be more modular + including better debug info (file, line, etc)
 namespace mango {
 	// base class of all mango-library exceptions
 	class MangoError : public std::exception {
@@ -52,6 +53,7 @@ namespace mango {
 	mango_create_error(UnmatchingImageArchitecture, "Image architecture does not match the process architecture.");
 
 	mango_create_error(InvalidProcessHandle, "Failed to get a valid process handle, usually caused by insufficient permissions or invalid process ID.");
+	mango_create_error(InvalidThreadHandle, "Failed to get a valid thread handle.");
 	mango_create_error(InvalidFileHandle, "Failed to get a valid file handle.");
 	mango_create_error(InvalidFileSize, "Invalid file size.");
 	mango_create_error(InvalidPEHeader, "Invalid PE header.");
@@ -68,14 +70,21 @@ namespace mango {
 	mango_create_error(FailedToReadFile, "Failed to read file.");
 	mango_create_error(FailedToWriteFile, "Failed to write file.");
 	mango_create_error(FailedToVerifyX64Transition, "Failed to verify against Wowx64Transition address.");
+	mango_create_error(FailedToEnumProcesses, "Failed to enumerate all processes.");
+
+	mango_create_error(FailedToCreateThreadSnapshot, "Failed to create thread snapshot.");
+	mango_create_error(FailedToGetFirstThread, "Failed to get first thread from a Toolhelp32 snapshot.");
+	mango_create_error(FailedToGetThreadStartAddress, "Failed to get thread's start address.");
+
 	mango_create_error(FailedToOpenProcessToken, "Failed to open process token.");
 	mango_create_error(FailedToGetPrivilegeLUID, "Failed to get privilege LUID.");
 	mango_create_error(FailedToSetTokenPrivilege, "Failed to set token's privileges.");
-	mango_create_error(FailedToSuspendProcess, "Failed to suspend the process.");
-	mango_create_error(FailedToResumeProcess, "Failed to resume the process.");
-	mango_create_error(FailedToEnumProcesses, "Failed to enumerate all processes.");
+
 	mango_create_error(FailedToGetThreadContext, "Failed to get thread context.");
 	mango_create_error(FailedToSetThreadContext, "Failed to set thread context.");
+
+	mango_create_error(FailedToSuspendProcess, "Failed to suspend the process.");
+	mango_create_error(FailedToResumeProcess, "Failed to resume the process.");
 
 	mango_create_error(FailedToReadMemory, "Failed to read process memory.");
 	mango_create_error(FailedToWriteMemory, "Failed to write to process memory.");

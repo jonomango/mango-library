@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <Psapi.h>
 #include <WtsApi32.h>
+#include <TlHelp32.h>
 
 #include "../../include/epic/shellcode.h"
 
@@ -135,16 +136,35 @@ namespace mango {
 
 	// clean up
 	void Process::release() noexcept {
-		if (!this->m_is_valid)
-			return;
-
 		// never throw in a destructor
-		try {
+		if (this->m_is_valid) try {
+			this->m_is_valid = false;
 			if (this->m_free_handle)
 				CloseHandle(this->m_handle);
 		} catch (...) {}
+	}
 
-		this->m_is_valid = false;
+	// get all running thread ids
+	Process::ProcessThreadIds Process::get_threadids() const {
+		// TODO: find a better alternative
+		const auto snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+		if (snapshot == INVALID_HANDLE_VALUE)
+			throw FailedToCreateThreadSnapshot(mango_format_w32status(GetLastError()));
+
+		// get the first thread
+		THREADENTRY32 entry{ .dwSize = sizeof(THREADENTRY32) };
+		if (!Thread32First(snapshot, &entry))
+			throw FailedToGetFirstThread(mango_format_w32status(GetLastError()));
+
+		ProcessThreadIds threads;
+
+		// iterate through the rest of the threads
+		do {
+			if (entry.th32OwnerProcessID == this->m_pid)
+				threads.push_back(entry.th32ThreadID);
+		} while (Thread32Next(snapshot, &entry));
+
+		return threads;
 	}
 
 	// get a loaded module, case-insensitive (passing "" for name returns the current process module)
@@ -183,7 +203,7 @@ namespace mango {
 		return 0;
 	}
 
-	// this uses the internal list of modules to find the function address (doesn't account for ApiSchema)
+	// this uses the internal list of modules to find the function address
 	uintptr_t Process::get_proc_addr(const std::string_view module_name, const std::string_view func_name) const {
 		const auto mod{ this->get_module(module_name) };
 		if (!mod)

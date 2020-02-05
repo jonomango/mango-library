@@ -1,9 +1,9 @@
 #pragma once
 
+#include "thread.h"
 #include "process.h"
+#include "windows_defs.h"
 #include "../misc/error_codes.h"
-
-#include <Windows.h>
 
 
 // https://en.wikipedia.org/wiki/X86_debug_register
@@ -46,6 +46,11 @@ namespace mango::hwbp {
 	// safe to use on current thread (although technically "undefined behavior")
 	void enable(const Process& process, const HANDLE thread, 
 		const uintptr_t address, const Options& options = Options{});
+	inline void enable(const Process& process, const Thread& thread,
+		const uintptr_t address, const Options& options = Options{}) 
+	{
+		enable(process, thread.get_handle(), address, options);
+	}
 
 	// Ctx must be either CONTEXT or WOW64_CONTEXT
 	template <typename Ctx>
@@ -58,6 +63,9 @@ namespace mango::hwbp {
 
 	// disable all hardware breakpoint in specified thread that have a value of specified address
 	void disable(const Process& process, const HANDLE thread, const uintptr_t address);
+	inline void disable(const Process& process, const Thread& thread, const uintptr_t address) {
+		disable(process, thread.get_handle(), address);
+	}
 
 	// Ctx must be either CONTEXT or WOW64_CONTEXT
 	template <typename Ctx>

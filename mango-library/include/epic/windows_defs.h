@@ -11,6 +11,27 @@ namespace mango::windows {
 		MemoryBasicInformation
 	};
 
+	enum THREADINFOCLASS {
+		ThreadBasicInformation,
+		ThreadTimes,
+		ThreadPriority,
+		ThreadBasePriority,
+		ThreadAffinityMask,
+		ThreadImpersonationToken,
+		ThreadDescriptorTableEntry,
+		ThreadEnableAlignmentFaultFixup,
+		ThreadEventPair,
+		ThreadQuerySetWin32StartAddress,
+		ThreadZeroTlsCell,
+		ThreadPerformanceCount,
+		ThreadAmILastThread,
+		ThreadIdealProcessor,
+		ThreadPriorityBoost,
+		ThreadSetTlsArrayAddress,
+		ThreadIsIoPending,
+		ThreadHideFromDebugger
+	};
+
 	// ApiSet structs are taken from https://lucasg.github.io/2017/10/15/Api-set-resolution/
 	struct API_SET_NAMESPACE {
 		ULONG Version;     // v2 on Windows 7, v4 on Windows 8.1  and v6 on Windows 10
@@ -218,4 +239,7 @@ namespace mango::windows {
 	NTSTATUS NtSuspendProcess(HANDLE ProcessHandle);
 
 	NTSTATUS NtResumeProcess(HANDLE ProcessHandle);
+
+	NTSTATUS NtQueryInformationThread(HANDLE ThreadHandle, THREADINFOCLASS ThreadInformationClass,
+		PVOID ThreadInformation, ULONG ThreadInformationLength, PULONG ReturnLength);
 } // namespace mango::windows
