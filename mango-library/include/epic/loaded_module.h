@@ -1,13 +1,13 @@
 #pragma once
 
+#include "../misc/logger.h"
+
 #include <string>
 #include <string_view>
 #include <stdint.h>
 #include <unordered_map>
 #include <vector>
 #include <optional>
-
-#include "../misc/logger.h"
 
 
 namespace mango {
@@ -34,9 +34,6 @@ namespace mango {
 
 		// sections
 		using PeSections = std::vector<PeSection>;
-
-		template <bool>
-		friend void setup_internal(LoadedModule* const loaded_module, const Process& process, const uintptr_t address);
 
 	public:
 		LoadedModule() = default; // left in an invalid state
@@ -75,6 +72,10 @@ namespace mango {
 
 		// a more intuitive way to test for validity
 		explicit operator bool() const noexcept { return this->is_valid(); }
+
+	private:
+		template <bool>
+		void setup_internal(const Process&, const uintptr_t);
 
 	private:
 		bool m_is_valid = false;

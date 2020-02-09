@@ -142,7 +142,7 @@ namespace mango {
 			} else {
 				if (this->is_64bit())
 					throw NotA32BitProcess{};
-				// wow64 peb is +one page from the 64bit peb
+				// wow64 peb is +1 page from the 64bit peb
 				return this->m_peb64_address + 0x1000;
 			}
 		}

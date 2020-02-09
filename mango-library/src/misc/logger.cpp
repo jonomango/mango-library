@@ -6,27 +6,27 @@
 #include <Windows.h>
 
 
-namespace {
-	void console_print_colored(const HANDLE console_handle, const uint16_t attribute, 
-		const std::string_view prefix, const std::string_view text) {
-		
-		// the prefix is colored, the text is white
-		static constexpr auto white = FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED;
-
-		SetConsoleTextAttribute(console_handle, white);
-		std::cout << '[';
-
-		// print the prefix
-		SetConsoleTextAttribute(console_handle, attribute);
-		std::cout << prefix;
-
-		// print the text
-		SetConsoleTextAttribute(console_handle, white);
-		std::cout << "] " << text << std::endl;
-	}
-} // namespace
-
 namespace mango {
+	namespace impl {
+		void console_print_colored(const HANDLE console_handle, const uint16_t attribute,
+			const std::string_view prefix, const std::string_view text) 
+		{
+			// the prefix is colored, the text is white
+			static constexpr auto white = FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED;
+
+			SetConsoleTextAttribute(console_handle, white);
+			std::cout << '[';
+
+			// print the prefix
+			SetConsoleTextAttribute(console_handle, attribute);
+			std::cout << prefix;
+
+			// print the text
+			SetConsoleTextAttribute(console_handle, white);
+			std::cout << "] " << text << std::endl;
+		}
+	} // namespace impl
+
 	// basic colored console logging
 	LoggingChannels basic_colored_logging() {
 		// has to be static
@@ -37,19 +37,19 @@ namespace mango {
 		return LoggingChannels{
 			// info channel
 			.info = [](std::ostringstream&& ss) {
-				console_print_colored(console_handle, FOREGROUND_BLUE | FOREGROUND_GREEN, "info", ss.str());
+				impl::console_print_colored(console_handle, FOREGROUND_BLUE | FOREGROUND_GREEN, "info", ss.str());
 			},
 			// success channel
 			.success = [](std::ostringstream&& ss) {
-				console_print_colored(console_handle, FOREGROUND_GREEN, "success", ss.str());
+				impl::console_print_colored(console_handle, FOREGROUND_GREEN, "success", ss.str());
 			},
 			// warning channel
 			.warning = [](std::ostringstream&& ss) {
-				console_print_colored(console_handle, FOREGROUND_RED | FOREGROUND_GREEN, "warning", ss.str());
+				impl::console_print_colored(console_handle, FOREGROUND_RED | FOREGROUND_GREEN, "warning", ss.str());
 			},
 			// error channel
 			.error = [](std::ostringstream&& ss) {
-				console_print_colored(console_handle, FOREGROUND_RED, "error", ss.str());
+				impl::console_print_colored(console_handle, FOREGROUND_RED, "error", ss.str());
 			}
 		};
 	}

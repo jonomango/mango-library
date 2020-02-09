@@ -10,9 +10,9 @@ namespace mango {
 	// not much variance, what did u expect from someone bad in cryptography
 	constexpr uint64_t compile_time_key(const uint64_t stuff = 0) {
 		// based on compile time
-		const auto hours = uint64_t((__TIME__[0] - '0') * 10 + (__TIME__[1] - '0'));
-		const auto minutes = uint64_t((__TIME__[3] - '0') * 10 + (__TIME__[4] - '0'));
-		const auto seconds = uint64_t((__TIME__[6] - '0') * 10 + (__TIME__[7] - '0'));
+		const auto hours   = (uint64_t(__TIME__[0]) - '0') * 10 + (uint64_t(__TIME__[1]) - '0');
+		const auto minutes = (uint64_t(__TIME__[3]) - '0') * 10 + (uint64_t(__TIME__[4]) - '0');
+		const auto seconds = (uint64_t(__TIME__[6]) - '0') * 10 + (uint64_t(__TIME__[7]) - '0');
 
 		// [0, 86400] (86400 seconds in a day)
 		const auto total = seconds + (minutes * 60) + (hours * 60 * 60);

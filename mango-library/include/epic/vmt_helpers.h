@@ -12,7 +12,7 @@ namespace mango {
 		return Ret(process.read<uint32_t>(process.read<uint32_t>(instance) + sizeof(uint32_t) * index));
 	}
 
-	// only used when in same memory-space
+	// only to be used when in same memory-space
 	template <typename Ret, typename... Args>
 	Ret call_vfunc(const size_t index, const void* const instance, const Args ...args) {
 		using fn = Ret(__thiscall*)(const void*, Args...);

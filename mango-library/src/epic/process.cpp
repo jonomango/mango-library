@@ -12,45 +12,43 @@
 #include "../../include/misc/logger.h"
 
 
-namespace {
-	// iterate over every module in the process
-	template <typename Ptr, typename Callable>
-	void iterate_modules(const mango::Process& process, Callable&& callback) {
-		using namespace mango;
-
-		const auto peb = process.get_peb<Ptr>();
-
-		// PEB_LDR_DATA
-		const auto list_head = process.read<windows::PEB_LDR_DATA<Ptr>>(peb.Ldr).InMemoryOrderModuleList;
-		for (auto current = list_head.Flink; current && current != list_head.Blink;) {
-			// LDR_DATA_TABLE_ENTRY
-			const auto table_addr = current - offsetof(windows::LDR_DATA_TABLE_ENTRY<Ptr>, InMemoryOrderLinks);
-			if (!table_addr)
-				break;
-
-			const auto table_entry = process.read<windows::LDR_DATA_TABLE_ENTRY<Ptr>>(table_addr);
-
-			const auto name_addr{ uintptr_t(table_entry.FullDllName.Buffer) };
-			if (!name_addr)
-				break;
-
-			const auto name_size{ size_t(table_entry.FullDllName.Length) };
-
-			// read the dll name
-			const auto name_wstr{ std::make_unique<wchar_t[]>(name_size + 1) };
-			process.read(name_addr, name_wstr.get(), name_size);
-			name_wstr[name_size] = L'\0';
-
-			// call our callback
-			std::invoke(callback, wstr_to_str(name_wstr.get()), table_entry.DllBase);
-
-			// proceed to next entry
-			current = process.read<windows::LIST_ENTRY<Ptr>>(current).Flink;
-		}
-	}
-} // namespace
-
 namespace mango {
+	namespace impl {
+		// iterate over every module in the process
+		template <typename Ptr, typename Callable>
+		void iterate_modules(const Process& process, Callable&& callback) {
+			const auto peb = process.get_peb<Ptr>();
+
+			// PEB_LDR_DATA
+			const auto list_head = process.read<windows::PEB_LDR_DATA<Ptr>>(peb.Ldr).InMemoryOrderModuleList;
+			for (auto current = list_head.Flink; current && current != list_head.Blink;) {
+				// LDR_DATA_TABLE_ENTRY
+				const auto table_addr = current - offsetof(windows::LDR_DATA_TABLE_ENTRY<Ptr>, InMemoryOrderLinks);
+				if (!table_addr)
+					break;
+
+				const auto table_entry = process.read<windows::LDR_DATA_TABLE_ENTRY<Ptr>>(table_addr);
+
+				const auto name_addr{ uintptr_t(table_entry.FullDllName.Buffer) };
+				if (!name_addr)
+					break;
+
+				const auto name_size{ size_t(table_entry.FullDllName.Length) };
+
+				// read the dll name
+				const auto name_wstr{ std::make_unique<wchar_t[]>(name_size + 1) };
+				process.read(name_addr, name_wstr.get(), name_size);
+				name_wstr[name_size] = L'\0';
+
+				// call our callback
+				std::invoke(callback, wstr_to_str(name_wstr.get()), table_entry.DllBase);
+
+				// proceed to next entry
+				current = process.read<windows::LIST_ENTRY<Ptr>>(current).Flink;
+			}
+		}
+	} // namespace impl
+
 	// SeDebugPrivilege
 	void Process::set_debug_privilege(const bool value) {
 		// get a process token handle
@@ -420,9 +418,9 @@ namespace mango {
 		} };
 
 		if (this->is_64bit()) {
-			iterate_modules<uint64_t>(*this, callback);
+			impl::iterate_modules<uint64_t>(*this, callback);
 		} else {
-			iterate_modules<uint32_t>(*this, callback);
+			impl::iterate_modules<uint32_t>(*this, callback);
 		}
 	}
 

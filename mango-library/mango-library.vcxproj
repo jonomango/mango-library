@@ -71,7 +71,7 @@
     <ClCompile Include="src\misc\misc.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <MASM Include="asm\syscall-x64.asm">
+    <MASM Include="src\asm\syscall-x64.asm">
       <FileType>Document</FileType>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>

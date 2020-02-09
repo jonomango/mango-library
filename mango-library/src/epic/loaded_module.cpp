@@ -11,9 +11,28 @@
 
 
 namespace mango {
-	// NOTE: this cannot be moved to an anonymous namespace!
+	// setup (parse the pe header mostly)
+	void LoadedModule::setup(const Process& process, const uintptr_t address) {
+		// reset
+		m_exported_funcs.clear();
+		m_imported_funcs.clear();
+
+		this->m_image_base = address;
+		this->m_is_valid = false; // not valid yet, setup_internal() could throw exceptions
+
+		// setup
+		if (process.is_64bit()) {
+			this->setup_internal<true>(process, address);
+		} else {
+			this->setup_internal<false>(process, address);
+		}
+
+		// setup_internal() didn't throw any exceptions, we're valid
+		this->m_is_valid = true;
+	}
+
 	template <bool is64bit>
-	void setup_internal(LoadedModule* const loaded_module, const Process& process, const uintptr_t address) {
+	void LoadedModule::setup_internal(const Process& process, const uintptr_t address) {
 		// architecture dependent types
 		using ImageNtHeaders = std::conditional_t<is64bit, IMAGE_NT_HEADERS64, IMAGE_NT_HEADERS32>;
 		using ImageOptionalHeader = std::conditional_t<is64bit, IMAGE_OPTIONAL_HEADER64, IMAGE_OPTIONAL_HEADER32>;
@@ -40,35 +59,35 @@ namespace mango {
 		}
 
 		// size of image
-		loaded_module->m_image_size = nt_header.OptionalHeader.SizeOfImage;
+		this->m_image_size = nt_header.OptionalHeader.SizeOfImage;
 
 		// section sizes are a multiple of this
-		loaded_module->m_section_alignment = nt_header.OptionalHeader.FileAlignment;
+		this->m_section_alignment = nt_header.OptionalHeader.FileAlignment;
 
 		// iterate through each section
 		for (uintptr_t i{ 0 }; i < nt_header.FileHeader.NumberOfSections; ++i) {
 			// the section headers are right after the pe header in memory
 			const auto section_header{ process.read<IMAGE_SECTION_HEADER>(
 				address + dos_header.e_lfanew + sizeof(ImageNtHeaders) + (i * sizeof(IMAGE_SECTION_HEADER))) };
-		
-			LoadedModule::PeSection section{};
+
+			PeSection section{};
 
 			// the section name
 			char name[9]{ 0 };
 			*reinterpret_cast<uint64_t*>(name) = *reinterpret_cast<const uint64_t*>(section_header.Name);
 			section.name = name;
-		
+
 			// address
 			section.address = address + section_header.VirtualAddress;
 
 			// size
 			section.rawsize = section_header.SizeOfRawData;
 			section.virtualsize = section_header.Misc.VirtualSize;
-		
+
 			// characteristics
 			section.characteristics = section_header.Characteristics;
 
-			loaded_module->m_sections.emplace_back(section);
+			this->m_sections.emplace_back(section);
 		}
 
 		// export data directory
@@ -92,7 +111,7 @@ namespace mango {
 			// address of the function
 			const auto addr{ address + process.read<uint32_t>(table_addr) };
 
-			loaded_module->m_exported_funcs[name] = LoadedModule::PeEntry{ addr, table_addr };
+			this->m_exported_funcs[name] = PeEntry{ addr, table_addr };
 		}
 
 		const auto imports_directory{ nt_header.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT] };
@@ -120,14 +139,14 @@ namespace mango {
 			str_tolower(module_name);
 
 			// we fill this with entries
-			auto& imported_funcs{ loaded_module->m_imported_funcs[module_name] };
+			auto& imported_funcs{ this->m_imported_funcs[module_name] };
 
 			// iterate through each thunk
 			for (uintptr_t j{ 0 }; true; j += sizeof(ImageThunkData)) {
 				const auto orig_thunk{ process.read<ImageThunkData>(address + iat_entry->OriginalFirstThunk + j) };
-				if (!orig_thunk || orig_thunk > loaded_module->m_image_size)
+				if (!orig_thunk || orig_thunk > this->m_image_size)
 					break;
-			
+
 				const auto thunk{ reinterpret_cast<ImageThunkData*>(
 					&iat_directory_data[iat_entry->FirstThunk + j - iat_directory.VirtualAddress]) };
 
@@ -137,32 +156,12 @@ namespace mango {
 				func_name[255] = '\0';
 
 				// cache the data
-				imported_funcs[func_name] = LoadedModule::PeEntry{
-					uintptr_t(*thunk), 
+				imported_funcs[func_name] = PeEntry{
+					uintptr_t(*thunk),
 					address + iat_entry->FirstThunk + j
 				};
 			}
 		}
-	}
-
-	// setup (parse the pe header mostly)
-	void LoadedModule::setup(const Process& process, const uintptr_t address) {
-		// reset
-		m_exported_funcs.clear();
-		m_imported_funcs.clear();
-
-		this->m_image_base = address;
-		this->m_is_valid = false; // not valid yet, setup_internal() could throw exceptions
-
-		// setup
-		if (process.is_64bit()) {
-			setup_internal<true>(this, process, address);
-		} else {
-			setup_internal<false>(this, process, address);
-		}
-
-		// setup_internal() didn't throw any exceptions, we're valid
-		this->m_is_valid = true;
 	}
 
 	// get exported functions

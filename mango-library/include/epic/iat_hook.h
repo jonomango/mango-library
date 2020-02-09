@@ -1,14 +1,13 @@
 #pragma once
 
+#include "loaded_module.h"
+#include "process.h"
+
 #include <string>
 #include <unordered_map>
 
-#include "loaded_module.h"
-
 
 namespace mango {
-	class Process;
-
 	// a bit of overhead but whatever
 	// module names are case insensitive but not function names
 	class IatHook {
