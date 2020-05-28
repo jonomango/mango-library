@@ -200,7 +200,63 @@ namespace mango::windows {
 		SYSTEM_HANDLE_TABLE_ENTRY_INFO Handles[1];
 	};
 
-	static constexpr auto SystemHandleInformation = SYSTEM_INFORMATION_CLASS(16);
+	struct RTL_PROCESS_MODULE_INFORMATION {
+		HANDLE Section;
+		PVOID MappedBase;
+		PVOID ImageBase;
+		ULONG ImageSize;
+		ULONG Flags;
+		USHORT LoadOrderIndex;
+		USHORT InitOrderIndex;
+		USHORT LoadCount;
+		USHORT OffsetToFileName;
+		UCHAR FullPathName[256];
+	};
+
+	struct RTL_PROCESS_MODULES {
+		ULONG NumberOfModules;
+		RTL_PROCESS_MODULE_INFORMATION Modules[1];
+	};
+
+	// superfetch structs are taken from process hacker source
+	enum SUPERFETCH_INFORMATION_CLASS
+	{
+	    SuperfetchRetrieveTrace = 1, // q: CHAR[]
+	    SuperfetchSystemParameters, // q: PF_SYSTEM_SUPERFETCH_PARAMETERS
+	    SuperfetchLogEvent,
+	    SuperfetchGenerateTrace,
+	    SuperfetchPrefetch,
+	    SuperfetchPfnQuery, // q: PF_PFN_PRIO_REQUEST
+	    SuperfetchPfnSetPriority,
+	    SuperfetchPrivSourceQuery, // q: PF_PRIVSOURCE_QUERY_REQUEST
+	    SuperfetchSequenceNumberQuery, // q: ULONG
+	    SuperfetchScenarioPhase, // 10
+	    SuperfetchWorkerPriority,
+	    SuperfetchScenarioQuery, // q: PF_SCENARIO_PHASE_INFO
+	    SuperfetchScenarioPrefetch,
+	    SuperfetchRobustnessControl,
+	    SuperfetchTimeControl,
+	    SuperfetchMemoryListQuery, // q: PF_MEMORY_LIST_INFO
+	    SuperfetchMemoryRangesQuery, // q: PF_PHYSICAL_MEMORY_RANGE_INFO
+	    SuperfetchTracingControl,
+	    SuperfetchTrimWhileAgingControl,
+	    SuperfetchRepurposedByPrefetch, // q: PF_REPURPOSED_BY_PREFETCH_INFO // rev
+	    SuperfetchInformationMax
+	};
+
+	struct SUPERFETCH_INFORMATION
+	{
+	    ULONG Version;
+	    ULONG Magic;
+	    SUPERFETCH_INFORMATION_CLASS InfoClass;
+	    PVOID Data;
+	    ULONG Length;
+	};
+
+	static constexpr auto SystemHandleInformation     = SYSTEM_INFORMATION_CLASS(0x10);
+	static constexpr auto SystemModuleInformation     = SYSTEM_INFORMATION_CLASS(0x0B);
+	static constexpr auto SystemSuperfetchInformation = SYSTEM_INFORMATION_CLASS(0x4F);
+
 
 	// implemented as direct syscalls
 	NTSTATUS NtReadVirtualMemory(HANDLE hProcess, LPCVOID lpBaseAddress, 

@@ -102,16 +102,16 @@ namespace mango {
 
 		// get the length (or magnitude) of a vector
 		template <const size_t D = C>
-		double length() const noexcept {
+		T length() const noexcept {
 			// D must be in the range of (0, C]
 			static_assert(D <= C, "D cannot be higher than C");
 			static_assert(D >= 1, "D must be one or greater");
 
-			double total{ 0 };
-			for (const auto x : *this)
-				total += x * x;
+			T total{ 0 };
+			for (size_t i = 0; i < D; ++i)
+				total += (*this)[i] * (*this)[i];
 
-			return total <= 0.0 ? 0.0 : std::sqrt(total);
+			return total <= T(0) ? T(0) : std::sqrt(total);
 		}
 
 		// normalize a vector (in place)
@@ -139,25 +139,33 @@ namespace mango {
 
 		// the sum of all elements
 		constexpr T sum() const noexcept {
-			T total{ 0 };
+			T total = 0;
 			for (const auto x : *this)
 				total += x;
 			return total;
 		}
 
-		// find the mean (obviously)
-		constexpr double mean() const noexcept {
-			return this->sum() / double(C);
+		// find the mean
+		constexpr T mean() const noexcept {
+			return this->sum() / T(C);
 		}
 
-		// find the median (obviously)
-		constexpr double median() const noexcept {
-			const auto center{ C / 2 - 1 };
+		// find the median
+		constexpr T median() const noexcept {
+			const auto center = C / 2 - 1;
 			if (C % 2 == 0) { // even
-				return double((*this)[center] + (*this)[center + 1]) / 2.0;
+				return ((*this)[center] + (*this)[center + 1]) / T(2);
 			} else { // odd
-				return double((*this)[center]);
+				return (*this)[center];
 			}
+		}
+
+		// dot-product
+		constexpr T dot(const Vector<T, C>& other) const noexcept {
+			T total = 0;
+			for (size_t i = 0; i < C; ++i)
+				total += (*this)[i] * other[i];
+			return total;
 		}
 	};
 

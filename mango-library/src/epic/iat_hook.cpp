@@ -9,7 +9,8 @@
 
 namespace mango {
 	// all hooks will only affect the specified module
-	void IatHook::setup(const Process& process, const uintptr_t module_address) {
+	void IatHook::setup(const Process& process, const uintptr_t module_address, const SetupOptions& options) {
+		this->m_options = options;
 		this->release();
 
 		// parse pe header

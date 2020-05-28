@@ -72,7 +72,7 @@ namespace mango {
 		void clear() noexcept { this->m_data.clear(); }
 
 		// amount of bytes
-		size_t size() noexcept { return this->m_data.size(); }
+		size_t size() const noexcept { return this->m_data.size(); }
 
 		// get the raw bytes
 		const ShellcodeData& get_data() const noexcept { return this->m_data; }

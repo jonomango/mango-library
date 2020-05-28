@@ -39,7 +39,7 @@ namespace mango::syscall {
 
 	// syscall wrapper, based on https://www.unknowncheats.me/forum/c-and-c-/267587-comfy-direct-syscall-caller-x64.html
 	// but adapted to also work with WOW64 processes
-	template <typename Ret = void*, typename ...Args>
+	template <typename Ret = long, typename ...Args>
 	Ret call(const uint32_t index, const Args ...args) {
 		// make sure return type size is <= ptr size
 		static_assert(sizeof(Ret) <= sizeof(void*), "Return type size is too big.");
@@ -54,5 +54,10 @@ namespace mango::syscall {
 			// for x86
 			return (reinterpret_cast<Ret(*)(uint32_t, Args...)>(&impl::_syscall))(index, args...);
 		}
+	}
+
+	template <typename Ret = long, typename ...Args>
+	Ret call(char const* const func_name, const Args ...args) {
+		return call(index(func_name), args...);
 	}
 } // namespace mango::syscall

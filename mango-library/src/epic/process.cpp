@@ -21,7 +21,9 @@ namespace mango {
 
 			// PEB_LDR_DATA
 			const auto list_head = process.read<windows::PEB_LDR_DATA<Ptr>>(peb.Ldr).InMemoryOrderModuleList;
-			for (auto current = list_head.Flink; current && current != list_head.Blink;) {
+			const auto list_head_addr = peb.Ldr + offsetof(windows::PEB_LDR_DATA<Ptr>, InMemoryOrderModuleList);
+
+			for (auto current = list_head.Flink; current && current != list_head_addr;) {
 				// LDR_DATA_TABLE_ENTRY
 				const auto table_addr = current - offsetof(windows::LDR_DATA_TABLE_ENTRY<Ptr>, InMemoryOrderLinks);
 				if (!table_addr)
@@ -93,6 +95,16 @@ namespace mango {
 
 		WTSFreeMemory(processes);
 		return pids;
+	}
+
+	// throws if none or more than one pid found
+	uint32_t Process::get_pid_by_name(const std::string_view process_name) {
+		auto const pids = get_pids_by_name(process_name);
+		if (pids.empty())
+			throw std::exception("Failed to find process.");
+		if (pids.size() > 1)
+			throw std::exception("More than one process with matching name found.");
+		return pids.front();
 	}
 
 	// setup by pid
@@ -310,7 +322,7 @@ namespace mango {
 	}
 
 	// get the handles that the process currently has open
-	Process::ProcessHandles Process::get_open_handles() const {
+	Process::ProcessHandles Process::get_open_handles(uint32_t const pid) {
 		unsigned long buffer_size{ 0xFFFF };
 		uint8_t* buffer{ new uint8_t[buffer_size] };
 
@@ -320,8 +332,7 @@ namespace mango {
 		// query system info
 		NTSTATUS status{ 0 };
 		while (0xC0000004 == (status = windows::NtQuerySystemInformation(
-			windows::SystemHandleInformation, buffer, buffer_size, nullptr))) 
-		{
+			windows::SystemHandleInformation, buffer, buffer_size, nullptr))) {
 			// STATUS_INFO_LENGTH_MISMATCH
 			// buffer too small, allocate larger
 			delete[] buffer; buffer = new uint8_t[buffer_size *= 2];
@@ -339,10 +350,10 @@ namespace mango {
 			const auto entry = handle_info->Handles[i];
 
 			// we only care about this process
-			if (entry.ProcessId != this->m_pid)
+			if (entry.ProcessId != pid)
 				continue;
 
-			handles.push_back({ HANDLE(entry.Handle), entry.ObjectTypeNumber, entry.GrantedAccess });
+			handles.push_back({ HANDLE(entry.Handle), entry.ObjectTypeNumber, entry.GrantedAccess, entry.ObjectAddress });
 		}
 
 		return handles;

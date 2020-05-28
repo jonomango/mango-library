@@ -86,6 +86,7 @@ namespace mango {
 			nullptr,
 			nullptr
 		) };
+
 		if (!service)
 			throw FailedToCreateService{ mango_format_w32status(GetLastError()) };
 

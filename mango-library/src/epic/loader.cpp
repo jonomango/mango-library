@@ -77,28 +77,26 @@ namespace mango {
 				if (!base_reloc.VirtualAddress)
 					break;
 
-				if (base_reloc.SizeOfBlock > 0) {
-					struct RelocEntry {
-						uint16_t offset : 12,
-							type : 4;
-					};
+				struct RelocEntry {
+					uint16_t offset : 12,
+						type : 4;
+				};
 
-					// the IMAGE_BASE_RELOCATION is included in the SizeOfBlock
-					const auto num_entries{ (base_reloc.SizeOfBlock - sizeof(IMAGE_BASE_RELOCATION)) / sizeof(RelocEntry) };
-					const auto relocations_addr{ base_reloc_addr + sizeof(IMAGE_BASE_RELOCATION) };
+				// the IMAGE_BASE_RELOCATION is included in the SizeOfBlock
+				const auto num_entries{ (base_reloc.SizeOfBlock - sizeof(IMAGE_BASE_RELOCATION)) / sizeof(RelocEntry) };
+				const auto relocations_addr{ base_reloc_addr + sizeof(IMAGE_BASE_RELOCATION) };
 
-					// fix each relocation in the block
-					for (size_t i{ 0 }; i < num_entries; i++) {
-						const auto entry{ process.read<RelocEntry>(relocations_addr + sizeof(RelocEntry) * i) };
-						const auto address{ module_base + base_reloc.VirtualAddress + entry.offset };
+				// fix each relocation in the block
+				for (size_t i{ 0 }; i < num_entries; i++) {
+					const auto entry{ process.read<RelocEntry>(relocations_addr + sizeof(RelocEntry) * i) };
+					const auto address{ module_base + base_reloc.VirtualAddress + entry.offset };
 
-						if (entry.type == IMAGE_REL_BASED_HIGHLOW) {
-							const auto value = process.read<uint32_t>(address);
-							process.write(address, uint32_t(value + delta));
-						} else if (entry.type == IMAGE_REL_BASED_DIR64) {
-							const auto value = process.read<uint64_t>(address);
-							process.write(address, uint64_t(value + delta));
-						}
+					if (entry.type == IMAGE_REL_BASED_HIGHLOW) {
+						const auto value = process.read<uint32_t>(address);
+						process.write(address, uint32_t(value + delta));
+					} else if (entry.type == IMAGE_REL_BASED_DIR64) {
+						const auto value = process.read<uint64_t>(address);
+						process.write(address, uint64_t(value + delta));
 					}
 				}
 

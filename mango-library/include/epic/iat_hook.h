@@ -15,15 +15,24 @@ namespace mango {
 		using HookedFuncs = std::unordered_map<std::string, std::unordered_map<std::string, uintptr_t>>;
 
 	public:
+		struct SetupOptions {
+			// whether we should call release in the destructor or not
+			bool auto_release = true;
+		};
+
+	public:
 		IatHook() = default;
-		IatHook(const Process& process, const uintptr_t module_address) { this->setup(process, module_address); }
-		IatHook(const Process& process, const void* const module_address) { this->setup(process, module_address); }
-		~IatHook() { this->release(); }
+		IatHook(const Process& process, const uintptr_t module_address, const SetupOptions& options = SetupOptions()) { this->setup(process, module_address, options); }
+		IatHook(const Process& process, const void* const module_address, const SetupOptions& options = SetupOptions()) { this->setup(process, module_address, options); }
+		~IatHook() {
+			if (this->m_options.auto_release)
+				this->release(); 
+		}
 
 		// all hooks will only affect the specified module
-		void setup(const Process& process, const uintptr_t module_address);
-		void setup(const Process& process, const void* const module_address) {
-			this->setup(process, uintptr_t(module_address));
+		void setup(const Process& process, const uintptr_t module_address, const SetupOptions& options = SetupOptions());
+		void setup(const Process& process, const void* const module_address, const SetupOptions& options = SetupOptions()) {
+			this->setup(process, uintptr_t(module_address), options);
 		}
 		
 		// unhooks everything
@@ -57,7 +66,8 @@ namespace mango {
 
 	private:
 		const Process* m_process = nullptr;
-		HookedFuncs m_hooked_funcs;
 		LoadedModule::ImportedFuncs m_iat;
+		HookedFuncs m_hooked_funcs;
+		SetupOptions m_options;
 	};
 } // namespace mango

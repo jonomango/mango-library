@@ -66,6 +66,24 @@ namespace mango::memscn {
 	std::vector<uintptr_t> find(const Process& process, const Pattern& pattern,
 		const std::string_view modulename, const Filter& filter = all_filter);
 
+	// return the first occurance or 0
+	inline uintptr_t find_first(const Process& process, const Pattern& pattern,
+		const Range& range = range_all, const Filter& filter = all_filter) 
+	{
+		auto const matching_addresses = find(process, pattern, range, filter);
+		if (matching_addresses.empty())
+			return 0;
+		return matching_addresses.front();
+	}
+	inline uintptr_t find_first(const Process& process, const Pattern& pattern,
+		const std::string_view modulename, const Filter& filter = all_filter) 
+	{
+		auto const matching_addresses = find(process, pattern, modulename, filter);
+		if (matching_addresses.empty())
+			return 0;
+		return matching_addresses.front();
+	}
+
 	// overload << operator
 	std::ostream& operator<<(std::ostream& stream, const Pattern& pattern);
 	std::wostream& operator<<(std::wostream& stream, const Pattern& pattern);

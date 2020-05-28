@@ -18,6 +18,7 @@ namespace mango {
 			HANDLE handle;
 			uint8_t type;
 			ACCESS_MASK access;
+			void* object;
 		};
 
 		using ReadMemoryFunc			= void (*)(const Process* process, const void* address, void* buffer, size_t size);
@@ -73,6 +74,9 @@ namespace mango {
 
 		// get a list of pids that match the process name
 		static std::vector<uint32_t> get_pids_by_name(const std::string_view process_name);
+
+		// throws if none or more than one pid found
+		static uint32_t get_pid_by_name(const std::string_view process_name);
 
 		// setup by pid
 		void setup(const uint32_t pid, const SetupOptions& options = SetupOptions());
@@ -218,7 +222,8 @@ namespace mango {
 		void resume() const;
 
 		// get the handles that the process currently has open
-		ProcessHandles get_open_handles() const;
+		ProcessHandles get_open_handles() const { return this->get_open_handles(this->m_pid); }
+		static ProcessHandles get_open_handles(uint32_t const pid);
 
 		// updates the internal list of modules
 		void load_modules();

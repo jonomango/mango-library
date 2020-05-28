@@ -7,9 +7,12 @@ namespace mango {
 	// get the address of a virtual method in an instance
 	template <typename Ret, typename Addr>
 	Ret get_vfunc(const Process& process, const Addr instance, const size_t index) {
+		uintptr_t address = 0;
 		if (process.is_64bit())
-			return Ret(process.read<uintptr_t>(process.read<uintptr_t>(instance) + sizeof(uintptr_t) * index));
-		return Ret(process.read<uint32_t>(process.read<uint32_t>(instance) + sizeof(uint32_t) * index));
+			address = process.read<uintptr_t>(process.read<uintptr_t>(instance) + sizeof(uintptr_t) * index);
+		else
+			address = process.read<uint32_t>(process.read<uint32_t>(instance) + sizeof(uint32_t) * index);
+		return (Ret)address;
 	}
 
 	// only to be used when in same memory-space
